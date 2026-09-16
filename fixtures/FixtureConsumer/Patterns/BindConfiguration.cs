@@ -1,4 +1,5 @@
 using ConfigGap.FixtureSupport;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace ConfigGap.FixtureConsumer.Patterns;
