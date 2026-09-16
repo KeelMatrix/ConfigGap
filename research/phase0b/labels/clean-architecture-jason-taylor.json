@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "repositoryId": "clean-architecture-jason-taylor",
+  "solution": "src/Web/Web.csproj",
+  "reviewedFiles": [
+    { "path": "src/Web/DependencyInjection.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "src/Web/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Web/appsettings.PostgreSQL.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Web/appsettings.SQLite.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Web/appsettings.SQLServer.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "ConnectionStrings", "surface": "src/Web/appsettings.json" },
+    { "key": "ConnectionStrings:CleanArchitectureDb", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:Default", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:Microsoft", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:Microsoft.Hosting.Lifetime", "surface": "src/Web/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "src/Web/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "src/Web/DependencyInjection.cs", "line": 41, "kind": "indexer", "key": "AZURE_KEY_VAULT_ENDPOINT", "supportedStatic": true, "certainty": "high", "note": "Literal provider endpoint key; absent from the selected project's checked-in declarations and not framework-owned." }
+  ],
+  "uncertainties": [
+    { "source": "src/Web/DependencyInjection.cs", "line": 44, "description": "Azure Key Vault is an optional custom provider configured from the statically read endpoint key.", "disposition": "provider setup is outside the static key access; the endpoint access itself remains a supported static key" },
+    { "source": "src/Web/Infrastructure/IdentityApiOperationTransformer.cs", "line": 34, "description": "The GetValue call is reflection on a metadata dictionary, not IConfiguration.", "disposition": "not a configuration access; excluded by semantic receiver type" }
+  ]
+}

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 
 namespace KeelMatrix.ConfigGap.Probe;
@@ -12,6 +12,30 @@ internal static class Program
     {
         try
         {
+            if (Has(args, "--corpus-index"))
+            {
+                return await CorpusEvaluator.RunAsync(
+                    Required(args, "--corpus-index"),
+                    Required(args, "--labels-root"),
+                    Required(args, "--clones-root"),
+                    Required(args, "--output"));
+            }
+
+            if (Has(args, "--generate-synthetic"))
+            {
+                SyntheticSolutionGenerator.Generate(
+                    Required(args, "--repository-root"),
+                    Required(args, "--generate-synthetic"),
+                    int.Parse(Required(args, "--project-count"), System.Globalization.CultureInfo.InvariantCulture));
+                Console.WriteLine($"Generated deterministic synthetic solution at {Path.GetFullPath(Required(args, "--generate-synthetic"))}");
+                return 0;
+            }
+
+            if (Has(args, "--analyze-only"))
+            {
+                return await AnalyzeOnlyAsync(args);
+            }
+
             var options = ProbeOptions.Parse(args);
             var stopwatch = Stopwatch.StartNew();
             var manifest = LoadManifest(options.ManifestPath);
@@ -31,6 +55,50 @@ internal static class Program
             Console.Error.WriteLine($"Probe failed: {exception.Message}");
             return 2;
         }
+    }
+
+    private static async Task<int> AnalyzeOnlyAsync(string[] args)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var repositoryRoot = Path.GetFullPath(Required(args, "--repository-root"));
+        var solutionPath = Path.GetFullPath(Required(args, "--solution"));
+        var outputPath = Path.GetFullPath(Required(args, "--output"));
+        var declarations = DeclarationGraph.Load(repositoryRoot);
+        var observations = await SemanticProbe.AnalyzeAsync(solutionPath, repositoryRoot);
+        stopwatch.Stop();
+
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var performance = new
+        {
+            version = 1,
+            solution = Path.GetFileName(solutionPath),
+            observationCount = observations.Count,
+            declaredSurfaceCount = declarations.Surfaces.Count,
+            durationMilliseconds = Math.Round(stopwatch.Elapsed.TotalMilliseconds, 0),
+            peakWorkingSetBytes = process.PeakWorkingSet64
+        };
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(performance, ReportJsonOptions) + Environment.NewLine);
+        Console.WriteLine("ConfigGap Roslyn analysis-only performance probe");
+        Console.WriteLine($"Observations: {observations.Count}");
+        Console.WriteLine($"Declared surfaces: {declarations.Surfaces.Count}");
+        Console.WriteLine($"Duration: {stopwatch.Elapsed.TotalMilliseconds:F0} ms");
+        Console.WriteLine($"Peak working set: {process.PeakWorkingSet64} bytes");
+        Console.WriteLine($"Machine-readable report: {Path.GetFullPath(outputPath)}");
+        return 0;
+    }
+
+    private static bool Has(string[] args, string name) => Array.IndexOf(args, name) >= 0;
+
+    private static string Required(string[] args, string name)
+    {
+        var index = Array.IndexOf(args, name);
+        if (index < 0 || index + 1 >= args.Length || string.IsNullOrWhiteSpace(args[index + 1]))
+        {
+            throw new InvalidOperationException($"Missing required argument {name}.");
+        }
+
+        return args[index + 1];
     }
 
     private static PatternManifest LoadManifest(string path)

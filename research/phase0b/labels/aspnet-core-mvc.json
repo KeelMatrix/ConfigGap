@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "repositoryId": "aspnet-core-mvc",
+  "solution": "Webgentle.BookStore/Webgentle.BookStore/Webgentle.BookStore.csproj",
+  "reviewedFiles": [
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "reason": "Selected project source; manual IConfiguration and Options review." },
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/Repository/AccountRepository.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/Repository/BookRepository.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/appsettings.Development.json", "reason": "Selected project's declaration surface." },
+    { "path": "Webgentle.BookStore/Webgentle.BookStore/appsettings.Production.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "Application", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "Application:LoginPath", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "Application:AppDomain", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "Application:EmailConfirmation", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "Application:ForgotPassword", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "NewBookAlert", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "ThirdPartyBook", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "SMTPConfig", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "AppName", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "ConnectionStrings", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "ConnectionStrings:DefaultConnection", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" },
+    { "key": "Logging", "surface": "Webgentle.BookStore/Webgentle.BookStore/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 37, "kind": "get-connection-string", "key": "ConnectionStrings:DefaultConnection", "owner": "framework", "supportedStatic": false, "certainty": "high", "note": "Static connection-string name; outside Phase 0A detector and framework-owned root." },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 64, "kind": "indexer", "key": "Application:LoginPath", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 86, "kind": "section", "key": "SMTPConfig", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 87, "kind": "section", "key": "NewBookAlert", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 88, "kind": "section", "key": "ThirdPartyBook", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Repository/AccountRepository.cs", "line": 107, "kind": "section", "key": "Application:AppDomain", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Repository/AccountRepository.cs", "line": 108, "kind": "section", "key": "Application:EmailConfirmation", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Repository/AccountRepository.cs", "line": 126, "kind": "section", "key": "Application:AppDomain", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Repository/AccountRepository.cs", "line": 127, "kind": "section", "key": "Application:ForgotPassword", "supportedStatic": true, "certainty": "high" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Repository/BookRepository.cs", "line": 121, "kind": "indexer", "key": "AppName", "supportedStatic": true, "certainty": "high" }
+  ],
+  "uncertainties": [
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Controllers/HomeController.cs", "line": 57, "description": "The apparent accesses are in comments and therefore are not executable configuration accesses.", "disposition": "not labeled; comments excluded" },
+    { "source": "Webgentle.BookStore/Webgentle.BookStore/Startup.cs", "line": 37, "description": "GetConnectionString is not emitted by the Phase 0A probe.", "disposition": "framework-owned and excluded from metric" }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "repositoryId": "eShopOnWeb",
+  "solution": "src/Web/Web.csproj",
+  "reviewedFiles": [
+    { "path": "src/Web/Program.cs", "reason": "Selected project source; all IConfiguration syntax manually reviewed." },
+    { "path": "src/Web/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Web/appsettings.Development.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Web/appsettings.Docker.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/PublicApi/appsettings.json", "reason": "Repository declaration surface containing shared CatalogBaseUrl and connection keys." },
+    { "path": "src/PublicApi/appsettings.Development.json", "reason": "Repository declaration surface." },
+    { "path": "src/PublicApi/appsettings.Docker.json", "reason": "Repository declaration surface." },
+    { "path": "src/BlazorAdmin/wwwroot/appsettings.json", "reason": "Repository declaration surface." },
+    { "path": "src/BlazorAdmin/wwwroot/appsettings.Development.json", "reason": "Repository declaration surface." },
+    { "path": "src/BlazorAdmin/wwwroot/appsettings.Docker.json", "reason": "Repository declaration surface." },
+    { "path": "tests/PublicApiIntegrationTests/appsettings.test.json", "reason": "Repository declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "baseUrls", "surface": "src/Web/appsettings.json" },
+    { "key": "baseUrls:apiBase", "surface": "src/Web/appsettings.json" },
+    { "key": "baseUrls:webBase", "surface": "src/Web/appsettings.json" },
+    { "key": "CatalogBaseUrl", "surface": "src/Web/appsettings.json" },
+    { "key": "UseOnlyInMemoryDatabase", "surface": "tests/PublicApiIntegrationTests/appsettings.test.json" },
+    { "key": "ConnectionStrings", "surface": "src/Web/appsettings.json" },
+    { "key": "ConnectionStrings:CatalogConnection", "surface": "src/Web/appsettings.json" },
+    { "key": "ConnectionStrings:IdentityConnection", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:Default", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:Microsoft", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:LogLevel:System", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:IncludeScopes", "surface": "src/Web/appsettings.json" },
+    { "key": "Logging:AllowedHosts", "surface": "src/Web/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "src/Web/Program.cs", "line": 32, "kind": "indexer", "key": "AZURE_KEY_VAULT_ENDPOINT", "supportedStatic": true, "certainty": "high", "note": "Literal provider/environment key; absent from checked-in declarations." },
+    { "source": "src/Web/Program.cs", "line": 35, "column": 32, "kind": "indexer", "key": null, "supportedStatic": false, "certainty": "high", "note": "Outer indexer key is read from another configuration access." },
+    { "source": "src/Web/Program.cs", "line": 35, "column": 54, "kind": "indexer", "key": "AZURE_SQL_CATALOG_CONNECTION_STRING_KEY", "supportedStatic": true, "certainty": "high", "note": "Inner literal provider/environment key; absent from checked-in declarations." },
+    { "source": "src/Web/Program.cs", "line": 40, "column": 32, "kind": "indexer", "key": null, "supportedStatic": false, "certainty": "high", "note": "Outer indexer key is read from another configuration access." },
+    { "source": "src/Web/Program.cs", "line": 40, "column": 54, "kind": "indexer", "key": "AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY", "supportedStatic": true, "certainty": "high", "note": "Inner literal provider/environment key; absent from checked-in declarations." },
+    { "source": "src/Web/Program.cs", "line": 97, "kind": "required-section", "key": "baseUrls", "supportedStatic": true, "certainty": "high", "note": "CONFIG_NAME const resolves to baseUrls." },
+    { "source": "src/Web/Program.cs", "line": 141, "kind": "get-value", "key": "CatalogBaseUrl", "supportedStatic": false, "certainty": "high", "note": "GetValue(Type, string) overload is outside the Phase 0A supported detector; key is manually visible in the second argument." }
+  ],
+  "uncertainties": [
+    { "source": "src/Web/Program.cs", "line": 35, "description": "Nested access may resolve at runtime to an environment/provider key.", "disposition": "dynamic; never a blocking finding" },
+    { "source": "src/Web/Program.cs", "line": 40, "description": "Nested access may resolve at runtime to an environment/provider key.", "disposition": "dynamic; never a blocking finding" },
+    { "source": "src/Web/Program.cs", "line": 141, "description": "The supported detector recognizes the generic GetValue(key) form, not the Type overload.", "disposition": "unsupported; excluded from metric" }
+  ]
+}

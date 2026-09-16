@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "repositories": [
+    {
+      "id": "eShopOnWeb",
+      "url": "https://github.com/dotnet-architecture/eShopOnWeb",
+      "commitSha": "4da8212117e87d808d4bbc7da6286fd2147ce606",
+      "qualification": "Public open-source ASP.NET Core reference application; the selected solution contains IConfiguration access and ten checked-in appsettings*.json files."
+    },
+    {
+      "id": "clean-architecture-jason-taylor",
+      "url": "https://github.com/jasontaylordev/CleanArchitecture",
+      "commitSha": "11bf720f0ef536a19f2d734e73cb5c1600e61f77",
+      "qualification": "Public open-source ASP.NET Core clean-architecture application; the selected Web project contains IConfiguration usage and four checked-in appsettings*.json files."
+    },
+    {
+      "id": "clean-architecture-manga",
+      "url": "https://github.com/ivanpaulovich/clean-architecture-manga",
+      "commitSha": "68b1d5869dd9a7730c58eb0daf5051309eaf09a4",
+      "qualification": "Public open-source ASP.NET Core clean-architecture sample; the checked-in solution contains IConfiguration usage and four appsettings*.json files."
+    },
+    {
+      "id": "clean-minimal-api",
+      "url": "https://github.com/Elfocrash/clean-minimal-api",
+      "commitSha": "6b73c8f69cacb44d32fec1ce2bd517d4f9013288",
+      "qualification": "Public open-source ASP.NET Core minimal API sample; the checked-in solution contains a web project and two appsettings*.json files."
+    },
+    {
+      "id": "dotnet-rpg",
+      "url": "https://github.com/kernelcsh/dotnet-rpg",
+      "commitSha": "bb5db15c1e4c99ff4b141abb18b833d153f7c82a",
+      "qualification": "Public open-source ASP.NET Core game API; the checked-in solution contains IConfiguration/Options binding and two appsettings*.json files."
+    },
+    {
+      "id": "aspnet-core-mvc",
+      "url": "https://github.com/webgentle/aspnet-core-mvc",
+      "commitSha": "e12a780e1a0202ecdb814d792a54d6d72d72621b",
+      "qualification": "Public open-source ASP.NET Core MVC tutorial repository; the checked-in solution contains IConfiguration/Options usage and three appsettings*.json files."
+    },
+    {
+      "id": "bookcatalog-api",
+      "url": "https://github.com/ggodin1981/ASP.NET_Core_BackEnd_Rest_API_JWT_Web_Token_Auth",
+      "commitSha": "7aa32d68b242c35216ed2b8f9dc3987cd6d49f81",
+      "qualification": "Public open-source ASP.NET Core book catalog API; the checked-in solution contains IConfiguration/Options usage and three appsettings*.json files."
+    },
+    {
+      "id": "fullstackhero-webapi",
+      "url": "https://github.com/fullstackhero/dotnet-webapi-boilerplate",
+      "commitSha": "3f2959e683e9f83f13e55e1678c9119f63c7e8e5",
+      "qualification": "Public open-source modular ASP.NET Core Web API; the selected host project contains IConfiguration usage and three checked-in appsettings*.json files."
+    },
+    {
+      "id": "oidcproxy-net",
+      "url": "https://github.com/oidcproxydotnet/OidcProxy.Net",
+      "commitSha": "c6a695c05e197fe294c1585100e1c25a899bd7b0",
+      "qualification": "Public open-source .NET OIDC/BFF framework with ASP.NET Core demos and test hosts; the checked-in solution contains configuration access and thirty-eight appsettings*.json files."
+    },
+    {
+      "id": "razor-pages-ioptions-samples",
+      "url": "https://github.com/karenpayneoregon/razor-pages-IOptions-samples",
+      "commitSha": "48ad402ee7c476afbf0f8daf19c7e021d339984b",
+      "qualification": "Public open-source ASP.NET Core configuration sample collection; the checked-in solution contains IConfiguration/Options usage and forty-four appsettings*.json files."
+    }
+  ]
+}

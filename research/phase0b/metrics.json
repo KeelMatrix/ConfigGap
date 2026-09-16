@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "analyzer": "MSBuildWorkspace/Roslyn semantic probe",
+  "protocol": "Distinct normalized configuration keys per repository; labels are independent manual truth data.",
+  "repositoryCount": 10,
+  "staticKeyTruePositives": 4,
+  "staticKeyPredictions": 4,
+  "staticKeyRecallNumerator": 16,
+  "staticKeyRecallDenominator": 29,
+  "dynamicBlockingFindings": 0,
+  "dynamicAccessesNeverBlock": true,
+  "blockingPrecision": 100,
+  "staticKeyRecall": 55.17,
+  "repositories": [
+    {
+      "id": "aspnet-core-mvc",
+      "commitSha": "e12a780e1a0202ecdb814d792a54d6d72d72621b",
+      "analyzerStaticKeys": 8,
+      "labeledStaticKeys": 8,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 8,
+      "recallDenominator": 8,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "bookcatalog-api",
+      "commitSha": "7aa32d68b242c35216ed2b8f9dc3987cd6d49f81",
+      "analyzerStaticKeys": 0,
+      "labeledStaticKeys": 6,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 0,
+      "recallDenominator": 6,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "clean-architecture-jason-taylor",
+      "commitSha": "11bf720f0ef536a19f2d734e73cb5c1600e61f77",
+      "analyzerStaticKeys": 1,
+      "labeledStaticKeys": 1,
+      "blockingTruePositives": 1,
+      "blockingPredictions": 1,
+      "recallNumerator": 1,
+      "recallDenominator": 1,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [
+        "AZURE_KEY_VAULT_ENDPOINT"
+      ],
+      "labeledMissingKeys": [
+        "AZURE_KEY_VAULT_ENDPOINT"
+      ],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "clean-architecture-manga",
+      "commitSha": "68b1d5869dd9a7730c58eb0daf5051309eaf09a4",
+      "analyzerStaticKeys": 0,
+      "labeledStaticKeys": 3,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 0,
+      "recallDenominator": 3,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [
+        "ASPNETCORE_BASEPATH"
+      ],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "clean-minimal-api",
+      "commitSha": "6b73c8f69cacb44d32fec1ce2bd517d4f9013288",
+      "analyzerStaticKeys": 0,
+      "labeledStaticKeys": 1,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 0,
+      "recallDenominator": 1,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "dotnet-rpg",
+      "commitSha": "bb5db15c1e4c99ff4b141abb18b833d153f7c82a",
+      "analyzerStaticKeys": 1,
+      "labeledStaticKeys": 1,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 1,
+      "recallDenominator": 1,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "eShopOnWeb",
+      "commitSha": "4da8212117e87d808d4bbc7da6286fd2147ce606",
+      "analyzerStaticKeys": 4,
+      "labeledStaticKeys": 4,
+      "blockingTruePositives": 3,
+      "blockingPredictions": 3,
+      "recallNumerator": 4,
+      "recallDenominator": 4,
+      "labeledDynamicAccesses": 2,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [
+        "AZURE_KEY_VAULT_ENDPOINT",
+        "AZURE_SQL_CATALOG_CONNECTION_STRING_KEY",
+        "AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY"
+      ],
+      "labeledMissingKeys": [
+        "AZURE_KEY_VAULT_ENDPOINT",
+        "AZURE_SQL_CATALOG_CONNECTION_STRING_KEY",
+        "AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY"
+      ],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "fullstackhero-webapi",
+      "commitSha": "3f2959e683e9f83f13e55e1678c9119f63c7e8e5",
+      "analyzerStaticKeys": 0,
+      "labeledStaticKeys": 3,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 0,
+      "recallDenominator": 3,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "oidcproxy-net",
+      "commitSha": "c6a695c05e197fe294c1585100e1c25a899bd7b0",
+      "analyzerStaticKeys": 1,
+      "labeledStaticKeys": 1,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 1,
+      "recallDenominator": 1,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    },
+    {
+      "id": "razor-pages-ioptions-samples",
+      "commitSha": "48ad402ee7c476afbf0f8daf19c7e021d339984b",
+      "analyzerStaticKeys": 1,
+      "labeledStaticKeys": 1,
+      "blockingTruePositives": 0,
+      "blockingPredictions": 0,
+      "recallNumerator": 1,
+      "recallDenominator": 1,
+      "labeledDynamicAccesses": 0,
+      "dynamicBlockingFindings": 0,
+      "analyzerMissingKeys": [],
+      "labeledMissingKeys": [],
+      "falsePositiveKeys": []
+    }
+  ]
+}

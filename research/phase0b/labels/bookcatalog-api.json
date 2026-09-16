@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "repositoryId": "bookcatalog-api",
+  "solution": "BookCatalog/BookCatalog.csproj",
+  "reviewedFiles": [
+    { "path": "BookCatalog/Program.cs", "reason": "Selected project source; manual Options review." },
+    { "path": "BookCatalog/Helpers/ConfigHelper.cs", "reason": "Selected project source; manual Options review." },
+    { "path": "BookCatalog/Helpers/AuthenticationHelper.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "BookCatalog/Controllers/JWTokenController.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "BookCatalog/Services/ConnectionStringProvider.cs", "reason": "Selected project source; manual connection-string review." },
+    { "path": "BookCatalog/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "BookCatalog/appsettings.Development.json", "reason": "Selected project's declaration surface." },
+    { "path": "BookCatalog.Data/appsettings.json", "reason": "Repository declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "JwtSecurityToken", "surface": "BookCatalog/appsettings.json" },
+    { "key": "JwtSecurityToken:Key", "surface": "BookCatalog/appsettings.json" },
+    { "key": "JwtSecurityToken:Issuer", "surface": "BookCatalog/appsettings.json" },
+    { "key": "JwtSecurityToken:Audience", "surface": "BookCatalog/appsettings.json" },
+    { "key": "JwtSecurityToken:Subject", "surface": "BookCatalog/appsettings.json" },
+    { "key": "AppSettings", "surface": "BookCatalog/appsettings.json" },
+    { "key": "AppSettings:ConnectionString", "surface": "BookCatalog/appsettings.json" },
+    { "key": "ConnectionStrings", "surface": "BookCatalog.Data/appsettings.json" },
+    { "key": "ConnectionStrings:BookStoreDB", "surface": "BookCatalog.Data/appsettings.json" },
+    { "key": "Logging", "surface": "BookCatalog/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "BookCatalog/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "BookCatalog/Program.cs", "line": 15, "kind": "section", "key": "JwtSecurityToken", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Helpers/ConfigHelper.cs", "line": 15, "kind": "section", "key": "AppSettings", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Helpers/AuthenticationHelper.cs", "line": 21, "kind": "indexer", "key": "JwtSecurityToken:Audience", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Helpers/AuthenticationHelper.cs", "line": 22, "kind": "indexer", "key": "JwtSecurityToken:Issuer", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Helpers/AuthenticationHelper.cs", "line": 23, "kind": "indexer", "key": "JwtSecurityToken:Key", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 40, "kind": "indexer", "key": "JwtSecurityToken:Subject", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 44, "kind": "indexer", "key": "JwtSecurityToken:Issuer", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 45, "kind": "indexer", "key": "JwtSecurityToken:Audience", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 50, "kind": "indexer", "key": "JwtSecurityToken:Key", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 54, "kind": "indexer", "key": "JwtSecurityToken:Issuer", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Controllers/JWTokenController.cs", "line": 55, "kind": "indexer", "key": "JwtSecurityToken:Audience", "supportedStatic": true, "certainty": "high" },
+    { "source": "BookCatalog/Services/ConnectionStringProvider.cs", "line": 14, "kind": "get-connection-string", "key": "ConnectionStrings:SurveyConnectionString", "owner": "framework", "supportedStatic": false, "certainty": "high", "note": "Static connection-string name; outside Phase 0A detector and framework-owned root." }
+  ],
+  "uncertainties": [
+    { "source": "BookCatalog/Services/ConnectionStringProvider.cs", "line": 14, "description": "The source requests a connection-string name not found in checked-in appsettings surfaces.", "disposition": "framework-owned and excluded from metric" }
+  ]
+}

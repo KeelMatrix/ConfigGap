@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "method": "SyntheticSolutionGenerator copied the Phase 0A FixtureConsumer and FixtureSupport source corpus, wrote a minimal net8.0 Directory.Build.props, generated 50 deterministic FixtureConsumer projects with project references, appsettings files, and a ConfigGap.Synthetic.sln.",
+  "primary": {
+    "observationCount": 1151,
+    "declaredSurfaceCount": 150,
+    "durationMilliseconds": 21700,
+    "peakWorkingSetBytes": 207577088
+  },
+  "repeat": {
+    "observationCount": 1151,
+    "declaredSurfaceCount": 150,
+    "durationMilliseconds": 22718,
+    "peakWorkingSetBytes": 202653696
+  },
+  "variance": {
+    "wallClockMeanMilliseconds": 22209,
+    "absoluteDifferenceMilliseconds": 1018,
+    "differencePercentFromPrimary": 4.69,
+    "maximumWallClockMilliseconds": 22718,
+    "maximumPeakWorkingSetBytes": 207577088
+  },
+  "machine": {
+    "os": "Windows 10 Pro for Workstations 10.0.19045 (win-x64)",
+    "cpu": "LENOVO 82L5, 16 logical processors",
+    "memoryBytes": 14877257728,
+    "dotnetSdk": "8.0.425",
+    "msbuild": "17.11.48+02bf66295",
+    "powershell": "7.6.6"
+  },
+  "frozenV1Baseline": {
+    "scope": "The exact generated 50-project solution and machine description above.",
+    "maximumWallClockMilliseconds": 22718,
+    "maximumPeakWorkingSetBytes": 207577088,
+    "interpretation": "This is a measured regression baseline, not a portable SLA. A later candidate must report against the same generation method before changing the bound."
+  }
+}

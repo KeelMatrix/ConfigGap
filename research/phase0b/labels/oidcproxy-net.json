@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "repositoryId": "oidcproxy-net",
+  "solution": "integrationtests/Host.TestApps.OpenIdDict/Host.TestApps.OpenIdDict.csproj",
+  "reviewedFiles": [
+    { "path": "integrationtests/Host.TestApps.OpenIdDict/Program.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "OidcProxy", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" },
+    { "key": "OidcProxy:Oidc", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" },
+    { "key": "OidcProxy:ReverseProxy", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" },
+    { "key": "Logging", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "integrationtests/Host.TestApps.OpenIdDict/Program.cs", "line": 10, "kind": "section", "key": "OidcProxy", "supportedStatic": true, "certainty": "high" }
+  ],
+  "uncertainties": []
+}

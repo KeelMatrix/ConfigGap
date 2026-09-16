@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "repositoryId": "clean-minimal-api",
+  "solution": "Customers.Api/Customers.Api.csproj",
+  "reviewedFiles": [
+    { "path": "Customers.Api/Program.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "Customers.Api/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "Customers.Api/appsettings.Development.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "Database", "surface": "Customers.Api/appsettings.json" },
+    { "key": "Database:ConnectionString", "surface": "Customers.Api/appsettings.json" },
+    { "key": "Logging", "surface": "Customers.Api/appsettings.json" },
+    { "key": "Logging:LogLevel", "surface": "Customers.Api/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "Customers.Api/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "Customers.Api/Program.cs", "line": 16, "kind": "get-value", "key": "Database:ConnectionString", "supportedStatic": true, "certainty": "high" }
+  ],
+  "uncertainties": []
+}

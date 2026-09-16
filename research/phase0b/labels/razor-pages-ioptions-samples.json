@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "repositoryId": "razor-pages-ioptions-samples",
+  "solution": "DataAnnotatedValidationApplication/DataAnnotatedValidationApplication.csproj",
+  "reviewedFiles": [
+    { "path": "DataAnnotatedValidationApplication/Program.cs", "reason": "Selected project source; manual Options review." },
+    { "path": "DataAnnotatedValidationApplication/Models/AzureSettings.cs", "reason": "Manually read to resolve nameof(AzureSettings) target." },
+    { "path": "DataAnnotatedValidationApplication/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "DataAnnotatedValidationApplication/appsettings.Development.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "AzureSettings", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:UseAdal", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:Tenant", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:TenantName", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:TenantId", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:Audience", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:ClientId", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:GraphClientId", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:GraphClientSecret", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:SignUpSignInPolicyId", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:AzureGraphVersion", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:MicrosoftGraphVersion", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AzureSettings:AadInstance", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "Logging", "surface": "DataAnnotatedValidationApplication/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "DataAnnotatedValidationApplication/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "DataAnnotatedValidationApplication/Program.cs", "line": 60, "kind": "options-bind-configuration", "key": "AzureSettings", "supportedStatic": true, "certainty": "high", "note": "nameof(AzureSettings) resolves to the options section name." }
+  ],
+  "uncertainties": []
+}

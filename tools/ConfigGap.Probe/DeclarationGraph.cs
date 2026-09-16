@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace KeelMatrix.ConfigGap.Probe;
 
@@ -55,7 +55,13 @@ internal sealed class DeclarationGraph
 
     private void AddJson(string path)
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        using var document = JsonDocument.Parse(
+            File.ReadAllText(path),
+            new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
         AddJsonElement(document.RootElement, string.Empty);
     }
 

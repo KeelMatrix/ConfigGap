@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repositoryId": "dotnet-rpg",
+  "solution": "dotnet-rpg.csproj",
+  "reviewedFiles": [
+    { "path": "Program.cs", "reason": "Selected project source; manual IConfiguration and Options review." },
+    { "path": "Configuration/JwtSettings.cs", "reason": "Manually read to resolve SectionName const." },
+    { "path": "appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "appsettings.Development.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "Jwt", "surface": "appsettings.json" },
+    { "key": "Jwt:SigningKey", "surface": "appsettings.json" },
+    { "key": "Jwt:Lifetime", "surface": "appsettings.json" },
+    { "key": "ConnectionStrings", "surface": "appsettings.json" },
+    { "key": "ConnectionStrings:DefaultConnection", "surface": "appsettings.json" },
+    { "key": "Logging", "surface": "appsettings.json" },
+    { "key": "AllowedHosts", "surface": "appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "Program.cs", "line": 18, "kind": "options-bind", "key": "Jwt", "supportedStatic": true, "certainty": "high", "note": "JwtSettings.SectionName is a const with value Jwt." },
+    { "source": "Program.cs", "line": 23, "kind": "get-connection-string", "key": "ConnectionStrings:DefaultConnection", "owner": "framework", "supportedStatic": false, "certainty": "high", "note": "Static connection-string name; API is outside the Phase 0A detector and framework-owned root." },
+    { "source": "Program.cs", "line": 52, "kind": "section", "key": "Jwt", "supportedStatic": true, "certainty": "high", "note": "JwtSettings.SectionName is a const with value Jwt." }
+  ],
+  "uncertainties": [
+    { "source": "Program.cs", "line": 23, "description": "GetConnectionString is not emitted by the Phase 0A probe.", "disposition": "framework-owned and excluded from metric" }
+  ]
+}

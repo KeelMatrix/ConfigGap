@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "repositoryId": "clean-architecture-manga",
+  "solution": "accounts-api/src/WebApi/WebApi.csproj",
+  "reviewedFiles": [
+    { "path": "accounts-api/src/WebApi/Modules/Common/AuthenticationExtensions.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "accounts-api/src/WebApi/Modules/Common/ReverseProxyExtensions.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "accounts-api/src/WebApi/Modules/Common/Swagger/SwaggerExtensions.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "accounts-api/src/WebApi/Modules/SQLServerExtensions.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "accounts-api/src/WebApi/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "accounts-api/src/WebApi/appsettings.Development.json", "reason": "Selected project's declaration surface." },
+    { "path": "accounts-api/src/WebApi/appsettings.Production.json", "reason": "Selected project's declaration surface." },
+    { "path": "identity-server/appsettings.json", "reason": "Repository declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "Logging", "surface": "accounts-api/src/WebApi/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "accounts-api/src/WebApi/appsettings.json" },
+    { "key": "FeatureManagement", "surface": "accounts-api/src/WebApi/appsettings.Development.json" },
+    { "key": "PersistenceModule", "surface": "accounts-api/src/WebApi/appsettings.Development.json" },
+    { "key": "PersistenceModule:DefaultConnection", "surface": "accounts-api/src/WebApi/appsettings.Development.json" },
+    { "key": "AuthenticationModule", "surface": "accounts-api/src/WebApi/appsettings.Development.json" },
+    { "key": "AuthenticationModule:AuthorityUrl", "surface": "accounts-api/src/WebApi/appsettings.Development.json" },
+    { "key": "CurrencyExchangeModule", "surface": "accounts-api/src/WebApi/appsettings.Development.json" }
+  ],
+  "accesses": [
+    { "source": "accounts-api/src/WebApi/Modules/Common/AuthenticationExtensions.cs", "line": 43, "kind": "indexer", "key": "AuthenticationModule:AuthorityUrl", "supportedStatic": true, "certainty": "high" },
+    { "source": "accounts-api/src/WebApi/Modules/Common/ReverseProxyExtensions.cs", "line": 32, "kind": "indexer", "key": "ASPNETCORE_BASEPATH", "supportedStatic": true, "certainty": "high", "note": "Literal environment/provider key; not a framework-owned root in this inventory." },
+    { "source": "accounts-api/src/WebApi/Modules/Common/Swagger/SwaggerExtensions.cs", "line": 100, "kind": "indexer", "key": "ASPNETCORE_BASEPATH", "supportedStatic": true, "certainty": "high", "note": "Repeated literal environment/provider key." },
+    { "source": "accounts-api/src/WebApi/Modules/SQLServerExtensions.cs", "line": 41, "kind": "get-value", "key": "PersistenceModule:DefaultConnection", "supportedStatic": true, "certainty": "high" }
+  ],
+  "uncertainties": [
+    { "source": "accounts-api/src/WebApi/Modules/Common/ReverseProxyExtensions.cs", "line": 32, "description": "ASPNETCORE_BASEPATH is provider-supplied in normal deployment and has no checked-in declaration.", "disposition": "static undeclared application key; blocking precision case" },
+    { "source": "accounts-api/src/WebApi/Modules/Common/Swagger/SwaggerExtensions.cs", "line": 100, "description": "Same provider-supplied key is read in a second source location.", "disposition": "static undeclared application key; blocking precision case" }
+  ]
+}

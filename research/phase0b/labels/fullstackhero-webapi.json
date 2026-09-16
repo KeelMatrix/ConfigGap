@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "repositoryId": "fullstackhero-webapi",
+  "solution": "src/Host/FSH.Starter.Api/FSH.Starter.Api.csproj",
+  "reviewedFiles": [
+    { "path": "src/Host/FSH.Starter.Api/Program.cs", "reason": "Selected project source; manual IConfiguration review." },
+    { "path": "src/Host/FSH.Starter.Api/appsettings.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Host/FSH.Starter.Api/appsettings.Development.json", "reason": "Selected project's declaration surface." },
+    { "path": "src/Host/FSH.Starter.Api/appsettings.Production.json", "reason": "Selected project's declaration surface." }
+  ],
+  "declaredKeys": [
+    { "key": "DatabaseOptions", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "DatabaseOptions:ConnectionString", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "CachingOptions", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "CachingOptions:Redis", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "JwtOptions", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "JwtOptions:SigningKey", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "Logging", "surface": "src/Host/FSH.Starter.Api/appsettings.json" },
+    { "key": "AllowedHosts", "surface": "src/Host/FSH.Starter.Api/appsettings.json" }
+  ],
+  "accesses": [
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 31, "kind": "indexer", "key": "DatabaseOptions:ConnectionString", "supportedStatic": true, "certainty": "high" },
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 32, "kind": "indexer", "key": "CachingOptions:Redis", "supportedStatic": true, "certainty": "high" },
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 33, "kind": "indexer", "key": "JwtOptions:SigningKey", "supportedStatic": true, "certainty": "high" }
+  ],
+  "uncertainties": [
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 29, "description": "The local Require helper receives IConfiguration and is only called with literal keys.", "disposition": "each literal key access is labeled as a supported static access" },
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 96, "description": "Referenced module registration methods may contain additional configuration access outside the selected host project documents.", "disposition": "outside the named project-scope evaluation unit; not counted in this label" }
+  ]
+}

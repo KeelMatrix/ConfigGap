@@ -1,4 +1,4 @@
-using Microsoft.Build.Locator;
+﻿using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -7,15 +7,41 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 internal sealed class SemanticProbe
 {
-    public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(string solutionPath, string repositoryRoot)
+    public static Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(string solutionPath, string repositoryRoot) =>
+        AnalyzeSolutionAsync(solutionPath, repositoryRoot, repositoryRoot, selectedProjectPath: null);
+
+    public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeProjectAsync(string projectPath, string repositoryRoot)
     {
-        RegisterMsBuild(repositoryRoot);
+        var projectDirectory = Path.GetDirectoryName(projectPath) ?? throw new InvalidOperationException("The project path has no directory.");
+        var temporarySolution = Path.Combine(projectDirectory, ".configgap-evaluation.sln");
+        File.WriteAllText(temporarySolution, CreateSingleProjectSolution(Path.GetFileName(projectPath)));
+        try
+        {
+            return await AnalyzeSolutionAsync(temporarySolution, repositoryRoot, repositoryRoot, Path.GetFullPath(projectPath));
+        }
+        finally
+        {
+            if (File.Exists(temporarySolution))
+            {
+                File.Delete(temporarySolution);
+            }
+        }
+    }
+
+    private static async Task<IReadOnlyList<ObservedAccess>> AnalyzeSolutionAsync(
+        string solutionPath,
+        string repositoryRoot,
+        string msbuildRoot,
+        string? selectedProjectPath)
+    {
+        RegisterMsBuild(msbuildRoot);
 
         var workspaceDiagnostics = new List<string>();
         using var workspace = MSBuildWorkspace.Create();
         workspace.WorkspaceFailed += (_, args) =>
         {
-            if (args.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+            if (args.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure &&
+                !IsKnownBenignWorkspaceDiagnostic(args.Diagnostic.Message))
             {
                 workspaceDiagnostics.Add(args.Diagnostic.Message);
             }
@@ -23,7 +49,10 @@ internal sealed class SemanticProbe
 
         var solution = await workspace.OpenSolutionAsync(solutionPath);
         var observations = new List<ObservedAccess>();
-        foreach (var project in solution.Projects.OrderBy(project => project.FilePath, StringComparer.OrdinalIgnoreCase))
+        foreach (var project in solution.Projects
+            .Where(project => selectedProjectPath is null ||
+                string.Equals(Path.GetFullPath(project.FilePath ?? string.Empty), selectedProjectPath, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(project => project.FilePath, StringComparer.OrdinalIgnoreCase))
         {
             var compilation = await project.GetCompilationAsync();
             if (compilation is null)
@@ -173,6 +202,40 @@ internal sealed class SemanticProbe
         }
 
         return observations;
+    }
+
+    private static bool IsKnownBenignWorkspaceDiagnostic(string message) =>
+        (message.Contains("A FrameworkReference for 'Microsoft.AspNetCore.App' was included in the project", StringComparison.Ordinal) &&
+            message.Contains("implicitly referenced by the .NET SDK", StringComparison.Ordinal)) ||
+        (message.Contains("The IncludeOpenAPIAnalyzers property and its associated MVC API analyzers are deprecated", StringComparison.Ordinal) &&
+            message.Contains("will be removed in a future release", StringComparison.Ordinal));
+
+    private static string CreateSingleProjectSolution(string projectFileName)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("Microsoft Visual Studio Solution File, Format Version 12.00");
+        builder.AppendLine("# Visual Studio Version 17");
+        builder.AppendLine("VisualStudioVersion = 17.0.31903.59");
+        builder.AppendLine("MinimumVisualStudioVersion = 10.0.40219.1");
+        builder.AppendLine(string.Format(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"{0}\", \"{1}\", \"{{10000000-0000-0000-0000-000000000001}}\"",
+            Path.GetFileNameWithoutExtension(projectFileName),
+            projectFileName));
+        builder.AppendLine("EndProject");
+        builder.AppendLine("Global");
+        builder.AppendLine("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution");
+        builder.AppendLine("\t\tDebug|Any CPU = Debug|Any CPU");
+        builder.AppendLine("\t\tRelease|Any CPU = Release|Any CPU");
+        builder.AppendLine("\tEndGlobalSection");
+        builder.AppendLine("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution");
+        builder.AppendLine("\t\t{10000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU");
+        builder.AppendLine("\t\t{10000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU");
+        builder.AppendLine("\t\t{10000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU");
+        builder.AppendLine("\t\t{10000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU");
+        builder.AppendLine("\tEndGlobalSection");
+        builder.AppendLine("EndGlobal");
+        return builder.ToString();
     }
 
     private static void RegisterMsBuild(string repositoryRoot)
