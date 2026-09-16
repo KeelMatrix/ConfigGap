@@ -1,0 +1,18 @@
+## Build output
+**/bin/
+**/obj/
+
+## Local probe output
+artifacts/
+
+## IDE and user files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Local environment files
+.env
+.env.local
+*.local.json

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "patterns": [
+    { "id": "array-options", "source": "fixtures/FixtureConsumer/Patterns/ArrayOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Servers"] },
+    { "id": "bind-configuration", "source": "fixtures/FixtureConsumer/Patterns/BindConfiguration.cs", "kind": "options-bind-configuration", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
+    { "id": "concatenated-key", "source": "fixtures/FixtureConsumer/Patterns/ConcatenatedKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:ConcatKey"] },
+    { "id": "const-key", "source": "fixtures/FixtureConsumer/Patterns/ConstKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:ConstKey"] },
+    { "id": "custom-extension-wrapper", "source": "fixtures/FixtureSupport/CustomConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Custom:WrappedKey"] },
+    { "id": "dynamic-computed-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicComputedKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "dynamic-configuration-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicConfigurationKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "dynamic-parameter-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicParameterKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "dynamic-variable-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicVariableKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "environment-double-underscore", "source": "fixtures/FixtureConsumer/Patterns/EnvironmentDoubleUnderscore.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["PAYMENTS:PROVIDER:APIKEY"] },
+    { "id": "environment-specific-settings", "source": "fixtures/FixtureConsumer/Patterns/EnvironmentSpecificSettings.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["ProductionOnly:Endpoint"] },
+    { "id": "framework-owned-key", "source": "fixtures/FixtureConsumer/Patterns/FrameworkOwnedKey.cs", "kind": "indexer", "owner": "framework", "expectedClassification": "declared", "expectedKeys": ["Kestrel:Endpoints:Http:Url"] },
+    { "id": "get-required-section", "source": "fixtures/FixtureConsumer/Patterns/GetRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
+    { "id": "get-section", "source": "fixtures/FixtureConsumer/Patterns/GetSection.cs", "kind": "section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
+    { "id": "get-value", "source": "fixtures/FixtureConsumer/Patterns/GetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "interpolated-key", "source": "fixtures/FixtureConsumer/Patterns/InterpolatedKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:InterpolatedKey"] },
+    { "id": "json-nesting", "source": "fixtures/FixtureConsumer/Patterns/JsonNesting.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Payments:Provider:ApiKey"] },
+    { "id": "literal-indexer", "source": "fixtures/FixtureConsumer/Patterns/LiteralIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "literal-undeclared", "source": "fixtures/FixtureConsumer/Patterns/LiteralUndeclared.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Unlisted:Key"] },
+    { "id": "multi-project-reference", "source": "fixtures/FixtureConsumer/Patterns/MultiProjectReference.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["MultiProject:Key"] },
+    { "id": "nested-options", "source": "fixtures/FixtureConsumer/Patterns/NestedOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
+    { "id": "nullable-options", "source": "fixtures/FixtureConsumer/Patterns/NullableOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
+    { "id": "options-bind", "source": "fixtures/FixtureConsumer/Patterns/OptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
+    { "id": "prefix-access", "source": "fixtures/FixtureConsumer/Patterns/PrefixAccess.cs", "kind": "prefix", "expectedClassification": "declared", "expectedKeys": ["Features"] }
+  ]
+}
