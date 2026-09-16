@@ -160,3 +160,12 @@ gh api repos/KeelMatrix/ConfigGap/commits/main --jq .sha
 ```
 
 All four reported the same final commit SHA. No tag, GitHub Release, package publication, deployment, visibility change, workflow file, or private Actions run was performed.
+
+Recorded output:
+
+```text
+HEAD:       1fbe92fc93780284422c933b10aae36f704d48e1
+origin/main: 1fbe92fc93780284422c933b10aae36f704d48e1
+ls-remote:  1fbe92fc93780284422c933b10aae36f704d48e1 refs/heads/main
+GitHub API: 1fbe92fc93780284422c933b10aae36f704d48e1
+```
