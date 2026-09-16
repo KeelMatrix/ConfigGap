@@ -18,7 +18,8 @@ internal static class Program
                     Required(args, "--corpus-index"),
                     Required(args, "--labels-root"),
                     Required(args, "--clones-root"),
-                    Required(args, "--output"));
+                    Required(args, "--output"),
+                    GetOptional(args, "--preflight-failures"));
             }
 
             if (Has(args, "--generate-synthetic"))
@@ -65,6 +66,21 @@ internal static class Program
         var outputPath = Path.GetFullPath(Required(args, "--output"));
         var declarations = DeclarationGraph.Load(repositoryRoot);
         var observations = await SemanticProbe.AnalyzeAsync(solutionPath, repositoryRoot);
+        var expectedObservationCount = GetOptionalInt(args, "--expected-observations");
+        if (observations.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "CONFIGGAP_ZERO_OBSERVATIONS: analysis completed with zero observations. " +
+                "Verify that the selected project is the intended project and that its assets and compilation loaded successfully.");
+        }
+
+        if (expectedObservationCount is not null && observations.Count != expectedObservationCount.Value)
+        {
+            throw new InvalidOperationException(
+                $"CONFIGGAP_UNEXPECTED_OBSERVATIONS: expected {expectedObservationCount.Value} observations, found {observations.Count}. " +
+                "Review the generated benchmark inputs and analyzer output before accepting the measurement.");
+        }
+
         stopwatch.Stop();
 
         var process = System.Diagnostics.Process.GetCurrentProcess();
@@ -89,6 +105,18 @@ internal static class Program
     }
 
     private static bool Has(string[] args, string name) => Array.IndexOf(args, name) >= 0;
+
+    private static int? GetOptionalInt(string[] args, string name)
+    {
+        var value = GetOptional(args, name);
+        return value is null ? null : int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string? GetOptional(string[] args, string name)
+    {
+        var index = Array.IndexOf(args, name);
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+    }
 
     private static string Required(string[] args, string name)
     {
@@ -129,6 +157,10 @@ internal static class Program
                 ? "not-observed"
                 : matched.Any(observation => observation.Key is null)
                     ? "unknown"
+                    : expected.Owner.Equals("framework", StringComparison.OrdinalIgnoreCase) &&
+                      observedKeys.All(key => !declarations.Contains(key)) &&
+                      observedKeys.All(FrameworkOwnedKeys.IsOwned)
+                        ? "framework-owned"
                     : observedKeys.All(declarations.Contains) ? "declared" : "discovered";
             var expectedKeys = expected.ExpectedKeys
                 .Select(KeyNormalizer.Normalize)

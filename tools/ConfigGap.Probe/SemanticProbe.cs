@@ -7,17 +7,28 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 internal sealed class SemanticProbe
 {
-    public static Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(string solutionPath, string repositoryRoot) =>
-        AnalyzeSolutionAsync(solutionPath, repositoryRoot, repositoryRoot, selectedProjectPath: null);
+    public static Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
+        string solutionPath,
+        string repositoryRoot,
+        CancellationToken cancellationToken = default) =>
+        AnalyzeSolutionAsync(solutionPath, repositoryRoot, repositoryRoot, selectedProjectPath: null, cancellationToken);
 
-    public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeProjectAsync(string projectPath, string repositoryRoot)
+    public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeProjectAsync(
+        string projectPath,
+        string repositoryRoot,
+        CancellationToken cancellationToken = default)
     {
         var projectDirectory = Path.GetDirectoryName(projectPath) ?? throw new InvalidOperationException("The project path has no directory.");
         var temporarySolution = Path.Combine(projectDirectory, ".configgap-evaluation.sln");
         File.WriteAllText(temporarySolution, CreateSingleProjectSolution(Path.GetFileName(projectPath)));
         try
         {
-            return await AnalyzeSolutionAsync(temporarySolution, repositoryRoot, repositoryRoot, Path.GetFullPath(projectPath));
+            return await AnalyzeSolutionAsync(
+                temporarySolution,
+                repositoryRoot,
+                repositoryRoot,
+                Path.GetFullPath(projectPath),
+                cancellationToken);
         }
         finally
         {
@@ -32,7 +43,8 @@ internal sealed class SemanticProbe
         string solutionPath,
         string repositoryRoot,
         string msbuildRoot,
-        string? selectedProjectPath)
+        string? selectedProjectPath,
+        CancellationToken cancellationToken)
     {
         RegisterMsBuild(msbuildRoot);
 
@@ -47,17 +59,68 @@ internal sealed class SemanticProbe
             }
         };
 
-        var solution = await workspace.OpenSolutionAsync(solutionPath);
+        Solution solution;
+        try
+        {
+            solution = await workspace.OpenSolutionAsync(solutionPath, progress: null, cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(
+                $"CONFIGGAP_WORKSPACE_LOAD_FAILURE: could not load '{Path.GetFileName(solutionPath)}'. " +
+                "Restore the selected project and verify that its SDK and project assets are available.",
+                exception);
+        }
+
+        ThrowIfWorkspaceFailed(workspaceDiagnostics);
+        var selectedProjectFound = selectedProjectPath is null;
         var observations = new List<ObservedAccess>();
         foreach (var project in solution.Projects
             .Where(project => selectedProjectPath is null ||
                 string.Equals(Path.GetFullPath(project.FilePath ?? string.Empty), selectedProjectPath, StringComparison.OrdinalIgnoreCase))
             .OrderBy(project => project.FilePath, StringComparer.OrdinalIgnoreCase))
         {
-            var compilation = await project.GetCompilationAsync();
+            selectedProjectFound = true;
+            ThrowIfWorkspaceFailed(workspaceDiagnostics, project.Name);
+            Compilation? compilation;
+            try
+            {
+                compilation = await project.GetCompilationAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(
+                    $"CONFIGGAP_COMPILATION_LOAD_FAILURE: could not build the compilation for project '{project.Name}'. " +
+                    "Restore the project and verify its SDK, project references, and assets.",
+                    exception);
+            }
+
             if (compilation is null)
             {
-                throw new InvalidOperationException($"Roslyn did not produce a compilation for {project.Name}.");
+                throw new InvalidOperationException(
+                    $"CONFIGGAP_COMPILATION_LOAD_FAILURE: Roslyn did not produce a compilation for project '{project.Name}'. " +
+                    "Restore the project and verify its SDK, project references, and assets.");
+            }
+
+            var compilationErrors = compilation.GetDiagnostics(cancellationToken)
+                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .Take(5)
+                .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture)}")
+                .ToArray();
+            if (compilationErrors.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"CONFIGGAP_COMPILATION_LOAD_FAILURE: project '{project.Name}' has compilation errors. " +
+                    "Restore the project and fix the project/source errors before analysis. " +
+                    string.Join(" | ", compilationErrors));
             }
 
             foreach (var document in project.Documents.OrderBy(document => document.FilePath, StringComparer.OrdinalIgnoreCase))
@@ -67,22 +130,22 @@ internal sealed class SemanticProbe
                     continue;
                 }
 
-                var tree = await document.GetSyntaxTreeAsync();
+                var tree = await document.GetSyntaxTreeAsync(cancellationToken);
                 if (tree is null)
                 {
                     continue;
                 }
 
                 var model = compilation.GetSemanticModel(tree);
-                var root = await tree.GetRootAsync();
+                var root = await tree.GetRootAsync(cancellationToken);
                 foreach (var elementAccess in root.DescendantNodes().OfType<ElementAccessExpressionSyntax>())
                 {
-                    if (IsNestedKeyExpression(elementAccess, model))
+                    if (IsNestedKeyExpression(elementAccess, model, cancellationToken))
                     {
                         continue;
                     }
 
-                    if (!IsConfigurationType(model.GetTypeInfo(elementAccess.Expression).Type))
+                    if (!IsConfigurationType(model.GetTypeInfo(elementAccess.Expression, cancellationToken).Type))
                     {
                         continue;
                     }
@@ -103,22 +166,23 @@ internal sealed class SemanticProbe
 
                 foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
-                    var symbol = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-                    if (symbol is null)
+                    var symbol = model.GetSymbolInfo(invocation, cancellationToken).Symbol as IMethodSymbol;
+                    var methodName = symbol?.Name ??
+                        (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text;
+                    if (methodName is null || (symbol is null && methodName != "BindConfiguration"))
                     {
                         continue;
                     }
 
                     var receiver = GetReceiver(invocation);
-                    var methodName = symbol.Name;
                     if (methodName is "GetValue" or "GetSection" or "GetRequiredSection")
                     {
-                        if (receiver is null || !IsConfigurationType(model.GetTypeInfo(receiver).Type))
+                        if (receiver is null || !IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
                         {
                             continue;
                         }
 
-                        if (IsReceiverOfKnownConsumer(invocation, model))
+                        if (IsReceiverOfKnownConsumer(invocation, model, cancellationToken))
                         {
                             continue;
                         }
@@ -144,9 +208,9 @@ internal sealed class SemanticProbe
                         continue;
                     }
 
-                    if (methodName == "GetChildren" && receiver is not null && IsConfigurationType(model.GetTypeInfo(receiver).Type))
+                    if (methodName == "GetChildren" && receiver is not null && IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
                     {
-                        var section = ResolveConfigurationPath(receiver, model);
+                        var section = ResolveConfigurationPath(receiver, model, cancellationToken);
                         if (section is not null)
                         {
                             observations.Add(CreateObservation(
@@ -161,10 +225,11 @@ internal sealed class SemanticProbe
                     }
 
                     if (methodName == "Bind" && receiver is not null &&
-                        IsConfigurationType(model.GetTypeInfo(receiver).Type) &&
+                        symbol is not null &&
+                        IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type) &&
                         symbol.ContainingNamespace?.ToDisplayString() == "Microsoft.Extensions.Configuration")
                     {
-                        var section = ResolveConfigurationPath(receiver, model);
+                        var section = ResolveConfigurationPath(receiver, model, cancellationToken);
                         if (section is not null)
                         {
                             observations.Add(CreateObservation(
@@ -178,11 +243,11 @@ internal sealed class SemanticProbe
                         continue;
                     }
 
-                    if (methodName == "BindConfiguration" && receiver is not null &&
-                        model.GetTypeInfo(receiver).Type?.Name.Contains("OptionsBuilder", StringComparison.Ordinal) == true)
+                    if (methodName == "BindConfiguration" && receiver is not null)
                     {
                         var argument = invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
-                        if (argument is not null)
+                        if (symbol is not null && IsSupportedBindConfiguration(symbol, model.GetTypeInfo(receiver, cancellationToken).Type) &&
+                            argument is not null)
                         {
                             observations.Add(CreateObservation(
                                 repositoryRoot,
@@ -191,17 +256,44 @@ internal sealed class SemanticProbe
                                 "options-bind-configuration",
                                 KeyResolution.Resolve(argument, model)));
                         }
+                        else
+                        {
+                            observations.Add(CreateObservation(
+                                repositoryRoot,
+                                document.FilePath,
+                                invocation,
+                                "options-bind-configuration",
+                                new StringResolution(null, "unsupported-options-bind-configuration")));
+                        }
                     }
                 }
             }
         }
 
-        if (workspaceDiagnostics.Count > 0)
+        if (selectedProjectPath is not null && !selectedProjectFound)
         {
-            throw new InvalidOperationException("MSBuildWorkspace failed: " + string.Join(" | ", workspaceDiagnostics));
+            throw new InvalidOperationException(
+                $"CONFIGGAP_WORKSPACE_LOAD_FAILURE: selected project '{Path.GetFileName(selectedProjectPath)}' was not loaded. " +
+                "Verify the project path and restore its project assets.");
         }
 
+        ThrowIfWorkspaceFailed(workspaceDiagnostics);
+
         return observations;
+    }
+
+    private static void ThrowIfWorkspaceFailed(IReadOnlyList<string> workspaceDiagnostics, string? projectName = null)
+    {
+        if (workspaceDiagnostics.Count == 0)
+        {
+            return;
+        }
+
+        var scope = projectName is null ? "solution" : $"project '{projectName}'";
+        throw new InvalidOperationException(
+            $"CONFIGGAP_WORKSPACE_LOAD_FAILURE: MSBuildWorkspace reported errors while loading {scope}. " +
+            "Restore the project and verify its SDK, project references, and assets. " +
+            string.Join(" | ", workspaceDiagnostics.Take(5)));
     }
 
     private static bool IsKnownBenignWorkspaceDiagnostic(string message) =>
@@ -295,10 +387,30 @@ internal sealed class SemanticProbe
             type.AllInterfaces.Any(interfaceType => interfaceType.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfiguration");
     }
 
+    private static bool IsSupportedBindConfiguration(IMethodSymbol symbol, ITypeSymbol? receiverType)
+    {
+        if (symbol.Name != "BindConfiguration" ||
+            symbol.ContainingNamespace?.ToDisplayString() != "Microsoft.Extensions.DependencyInjection" ||
+            symbol.ContainingType?.Name != "OptionsBuilderConfigurationExtensions")
+        {
+            return false;
+        }
+
+        var optionsBuilder = receiverType as INamedTypeSymbol;
+        var originalDefinition = optionsBuilder?.OriginalDefinition;
+        return originalDefinition is not null &&
+            originalDefinition.Name == "OptionsBuilder" &&
+            originalDefinition.Arity == 1 &&
+            originalDefinition.ContainingNamespace?.ToDisplayString() == "Microsoft.Extensions.Options";
+    }
+
     private static ExpressionSyntax? GetReceiver(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Expression : null;
 
-    private static string? ResolveConfigurationPath(ExpressionSyntax expression, SemanticModel model)
+    private static string? ResolveConfigurationPath(
+        ExpressionSyntax expression,
+        SemanticModel model,
+        CancellationToken cancellationToken)
     {
         if (expression is not InvocationExpressionSyntax invocation ||
             invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
@@ -308,7 +420,7 @@ internal sealed class SemanticProbe
         }
 
         var receiver = memberAccess.Expression;
-        if (!IsConfigurationType(model.GetTypeInfo(receiver).Type))
+        if (!IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
         {
             return null;
         }
@@ -318,7 +430,10 @@ internal sealed class SemanticProbe
         return resolution.Value is null ? null : KeyNormalizer.Normalize(resolution.Value);
     }
 
-    private static bool IsReceiverOfKnownConsumer(InvocationExpressionSyntax invocation, SemanticModel model)
+    private static bool IsReceiverOfKnownConsumer(
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
     {
         if (invocation.Parent is not MemberAccessExpressionSyntax memberAccess || memberAccess.Expression != invocation ||
             memberAccess.Parent is not InvocationExpressionSyntax outer)
@@ -326,11 +441,14 @@ internal sealed class SemanticProbe
             return false;
         }
 
-        var symbol = model.GetSymbolInfo(outer).Symbol as IMethodSymbol;
+        var symbol = model.GetSymbolInfo(outer, cancellationToken).Symbol as IMethodSymbol;
         return symbol?.Name is "Bind" or "GetChildren";
     }
 
-    private static bool IsNestedKeyExpression(ElementAccessExpressionSyntax elementAccess, SemanticModel model)
+    private static bool IsNestedKeyExpression(
+        ElementAccessExpressionSyntax elementAccess,
+        SemanticModel model,
+        CancellationToken cancellationToken)
     {
         SyntaxNode current = elementAccess;
         while (current.Parent is not null && current.Parent is not ArgumentSyntax)
@@ -343,7 +461,7 @@ internal sealed class SemanticProbe
             return false;
         }
 
-        var symbol = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        var symbol = model.GetSymbolInfo(invocation, cancellationToken).Symbol as IMethodSymbol;
         var methodName = symbol?.Name ??
             (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text;
         return methodName is "GetValue" or "GetSection" or "GetRequiredSection" or "BindConfiguration";

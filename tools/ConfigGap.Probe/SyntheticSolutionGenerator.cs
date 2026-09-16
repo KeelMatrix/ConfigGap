@@ -81,7 +81,7 @@ internal static class SyntheticSolutionGenerator
         builder.AppendLine("EndProject");
         for (var index = 1; index <= projectCount; index++)
         {
-            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"FixtureConsumer{0:000}\", \"FixtureConsumer{0:000}\\FixtureConsumer{0:000}.csproj\", \"{{10000000-0000-0000-0000-{0:000000000000}}}\"", index));
+            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"FixtureConsumer{0:000}\", \"FixtureConsumer{0:000}\\FixtureConsumer{0:000}.csproj\", \"{{{1}}}\"", index, ConsumerProjectId(index)));
             builder.AppendLine("EndProject");
         }
 
@@ -97,7 +97,7 @@ internal static class SyntheticSolutionGenerator
         builder.AppendLine("\t\t{10000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU");
         for (var index = 1; index <= projectCount; index++)
         {
-            var projectId = $"10000000-0000-0000-0000-{index:000000000000}";
+            var projectId = ConsumerProjectId(index);
             builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "\t\t{{{0}}}.Debug|Any CPU.ActiveCfg = Debug|Any CPU", projectId));
             builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "\t\t{{{0}}}.Debug|Any CPU.Build.0 = Debug|Any CPU", projectId));
             builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "\t\t{{{0}}}.Release|Any CPU.ActiveCfg = Release|Any CPU", projectId));
@@ -111,4 +111,6 @@ internal static class SyntheticSolutionGenerator
         builder.AppendLine("EndGlobal");
         return builder.ToString();
     }
+
+    private static string ConsumerProjectId(int index) => $"10000000-0000-0000-0001-{index:000000000000}";
 }

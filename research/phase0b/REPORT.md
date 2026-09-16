@@ -1,35 +1,50 @@
-# ConfigGap Phase 0 feasibility evidence
+# ConfigGap Phase 0B fix-round evidence
 
 ## Verdict
 
-**NARROW.** The probe has 100.00% blocking precision and zero dynamic blocking findings on the evaluated corpus, but measured static-key recall is 55.17%, below the specification's 90% gate. The recall result is also limited by project assets not being available for several legacy public repositories; the restore-capable harness remains available, but its all-corpus validation did not reach analysis after stalling during the first legacy restore. No product implementation should proceed from this result without a narrower scope or a corrected, independently reproducible corpus analysis.
+**FAIL.** The corrected evaluator is fail-closed and the clean corpus run is reproducible, but the gate cannot pass while six pinned repositories fail restore preflight. The run reports 100.00% blocking precision over zero predictions, 4/29 (13.79%) recall in the supported static domain, 4/29 (13.79%) recall over all labeled static keys, zero dynamic blocking findings, and six named load failures. This is a trustworthy FAIL, not a tuned corpus result.
 
-The Phase 0A synthetic fixture remains green: 24/24 patterns, normalization 2/2, Options sections 5/5, and 4 dynamic accesses with no missing classification.
+The synthetic fixture passes 26/26 pattern checks, normalization 2/2, Options behavior 6/6, and all five dynamic accesses remain `unknown` without a blocking finding. The failed corpus rows retain their label denominators and are never presented as clean zero-observation results.
 
 ## Corpus and independent labels
 
-The checked-in corpus index is [corpus-index.json](corpus-index.json). It contains only public repository URLs, exact commit SHAs, and selection rationale. No cloned source is committed. The ten selected repositories are:
+The checked-in corpus index is [corpus-index.json](corpus-index.json). It contains only public repository URLs, exact commit SHAs, and selection rationale. No cloned source is committed. The ten selected repositories and labels are unchanged from the prior review. Labels are independent manual truth data; they record source path, line, access kind, resolved key, ownership, and uncertainty disposition without values or secrets. The selected `.csproj` is the analysis unit; project references are loaded only to construct its compilation. Declaration truth is the repository-wide checked-in `appsettings*.json` graph.
 
-| Repository | Pinned commit | Qualification |
-| --- | --- | --- |
-| [eShopOnWeb](https://github.com/dotnet-architecture/eShopOnWeb) | `4da8212117e87d808d4bbc7da6286fd2147ce606` | Public ASP.NET Core reference application with `IConfiguration` access and checked-in appsettings surfaces. |
-| [CleanArchitecture](https://github.com/jasontaylordev/CleanArchitecture) | `11bf720f0ef536a19f2d734e73cb5c1600e61f77` | Public ASP.NET Core clean-architecture application with a Web project, configuration access, and appsettings surfaces. |
-| [clean-architecture-manga](https://github.com/ivanpaulovich/clean-architecture-manga) | `68b1d5869dd9a7730c58eb0daf5051309eaf09a4` | Public ASP.NET Core clean-architecture sample with configuration access and appsettings surfaces. |
-| [clean-minimal-api](https://github.com/Elfocrash/clean-minimal-api) | `6b73c8f69cacb44d32fec1ce2bd517d4f9013288` | Public ASP.NET Core minimal API sample with a web project and appsettings surfaces. |
-| [dotnet-rpg](https://github.com/kernelcsh/dotnet-rpg) | `bb5db15c1e4c99ff4b141abb18b833d153f7c82a` | Public ASP.NET Core game API with IConfiguration/Options usage and appsettings surfaces. |
-| [aspnet-core-mvc](https://github.com/webgentle/aspnet-core-mvc) | `e12a780e1a0202ecdb814d792a54d6d72d72621b` | Public ASP.NET Core MVC tutorial repository with configuration usage and appsettings surfaces. |
-| [ASP.NET Core BackEnd Rest API](https://github.com/ggodin1981/ASP.NET_Core_BackEnd_Rest_API_JWT_Web_Token_Auth) | `7aa32d68b242c35216ed2b8f9dc3987cd6d49f81` | Public ASP.NET Core book catalog API with configuration usage and appsettings surfaces. |
-| [dotnet-webapi-boilerplate](https://github.com/fullstackhero/dotnet-webapi-boilerplate) | `3f2959e683e9f83f13e55e1678c9119f63c7e8e5` | Public modular ASP.NET Core Web API with a selected host project, configuration usage, and appsettings surfaces. |
-| [OidcProxy.Net](https://github.com/oidcproxydotnet/OidcProxy.Net) | `c6a695c05e197fe294c1585100e1c25a899bd7b0` | Public .NET OIDC/BFF repository with ASP.NET Core hosts, configuration access, and checked-in appsettings surfaces. |
-| [razor-pages-IOptions-samples](https://github.com/karenpayneoregon/razor-pages-IOptions-samples) | `48ad402ee7c476afbf0f8daf19c7e021d339984b` | Public ASP.NET Core configuration sample collection with IConfiguration/Options usage and appsettings surfaces. |
+## Diagnosis of the 13 originally missed static keys
 
-The corresponding independently authored labels are `research/phase0b/labels/<repository-id>.json` for each index ID. The protocol is recorded in [LABELING.md](LABELING.md): labels were produced by manually reading source and JSON, not by running the analyzer; dynamic, unsupported, and uncertain accesses are retained as audit items; values and secrets are excluded. The selected `.csproj` is the source-analysis unit; project references may be loaded only to construct its compilation. Declaration truth is the repository-wide checked-in `appsettings*.json` graph.
+All 13 originally missed keys are cause class **(a), workspace/compilation load failure**. In reviewed candidate `932bc8e804244871070f94a0052082b5670e2863`, four repositories returned zero observations. A direct `dotnet build --no-restore` on the pinned BookCatalog project reproduced `NETSDK1004` because `project.assets.json` was absent. The final restore-enabled run now reports the failure before analysis for BookCatalog and the other affected legacy projects; clean-minimal-api restores and analyzes its previously missed key at 1/1. There is therefore no evidence that these 13 misses are extractor gaps, unsupported-domain accesses, or label errors, and no labels were silently changed.
 
-Candidates excluded before labeling, with reasons, are also recorded in [LABELING.md](LABELING.md): no appsettings surface (`eShopModernizing`, `aspnetcore3-configuration`), unavailable pinned SDK (`clean-architecture-dotnet`, `ASP.NET-Core-Eduardo-Pires-WebApi`), or incomplete shallow checkout without verifiable appsettings (`dotnet-podcasts`). These exclusions were made before metric evaluation and were not changed to improve a threshold.
+| Key | Repository; selected project | File and line | Exact access form | Cause | Evidence |
+| --- | --- | ---: | --- | --- | --- |
+| `JwtSecurityToken` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Program.cs:15` | `builder.Configuration.GetSection("JwtSecurityToken")` | (a) | Original run was zero-observation; direct no-restore build reproduced missing assets; final preflight is `CONFIGGAP_RESTORE_FAILURE`. |
+| `AppSettings` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Helpers/ConfigHelper.cs:15` | `builder.Configuration.GetSection("AppSettings")` | (a) | Same BookCatalog assets failure; no analyzer result was treated as clean. |
+| `JwtSecurityToken:Audience` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Helpers/AuthenticationHelper.cs:21` | `builder.Configuration["JwtSecurityToken:Audience"]` | (a) | Same BookCatalog assets failure. |
+| `JwtSecurityToken:Issuer` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Helpers/AuthenticationHelper.cs:22` | `builder.Configuration["JwtSecurityToken:Issuer"]` | (a) | Same BookCatalog assets failure. |
+| `JwtSecurityToken:Key` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Helpers/AuthenticationHelper.cs:23` | `builder.Configuration["JwtSecurityToken:Key"]` | (a) | Same BookCatalog assets failure. |
+| `JwtSecurityToken:Subject` | `bookcatalog-api`; `BookCatalog/BookCatalog.csproj` | `Controllers/JWTokenController.cs:40` | `configuration["JwtSecurityToken:Subject"]` | (a) | Same BookCatalog assets failure. |
+| `AuthenticationModule:AuthorityUrl` | `clean-architecture-manga`; `accounts-api/src/WebApi/WebApi.csproj` | `Modules/Common/AuthenticationExtensions.cs:43` | `configuration["AuthenticationModule:AuthorityUrl"]` | (a) | Original run was zero-observation; final restore preflight timed out and emitted a named failure. |
+| `ASPNETCORE_BASEPATH` | `clean-architecture-manga`; `accounts-api/src/WebApi/WebApi.csproj` | `Modules/Common/ReverseProxyExtensions.cs:32` | `configuration["ASPNETCORE_BASEPATH"]` | (a) | Same selected-project restore timeout; the repeated Swagger access at line 100 has the same cause. |
+| `PersistenceModule:DefaultConnection` | `clean-architecture-manga`; `accounts-api/src/WebApi/WebApi.csproj` | `Modules/SQLServerExtensions.cs:41` | `configuration.GetValue<string>("PersistenceModule:DefaultConnection")` | (a) | Same selected-project restore timeout. |
+| `DatabaseOptions:ConnectionString` | `fullstackhero-webapi`; `src/Host/FSH.Starter.Api/FSH.Starter.Api.csproj` | `Program.cs:31` | `config[key]` through the local required-value helper | (a) | Original run was zero-observation; final restore preflight timed out and emitted a named failure. |
+| `CachingOptions:Redis` | `fullstackhero-webapi`; `src/Host/FSH.Starter.Api/FSH.Starter.Api.csproj` | `Program.cs:32` | `config[key]` through the local required-value helper | (a) | Same selected-project restore timeout. |
+| `JwtOptions:SigningKey` | `fullstackhero-webapi`; `src/Host/FSH.Starter.Api/FSH.Starter.Api.csproj` | `Program.cs:33` | `config[key]` through the local required-value helper | (a) | Same selected-project restore timeout. |
+| `Database:ConnectionString` | `clean-minimal-api`; `Customers.Api/Customers.Api.csproj` | `Program.cs:16` | `config.GetValue<string>("Database:ConnectionString")` | (a), repaired | Original run had no assets and zero observations; the final run restored the project and detected 1/1. |
 
-## Metrics
+The repeated `JwtSecurityToken:Issuer`, `JwtSecurityToken:Audience`, and `JwtSecurityToken:Key` accesses in `JWTokenController.cs` are occurrences of already-counted normalized keys, not additional distinct missed keys. The four-cause classification was applied from the domain definition and build/workspace evidence, never inferred from analyzer silence.
 
-The single recomputation command, run from the repository root, was:
+## Fail-closed workspace behavior
+
+`SemanticProbe` now throws named `CONFIGGAP_WORKSPACE_LOAD_FAILURE` or `CONFIGGAP_COMPILATION_LOAD_FAILURE` when MSBuildWorkspace reports an error, a selected project is missing, a compilation is null, or compiler errors prevent a valid compilation. The corpus evaluator records restore, analysis, and timeout failures as `load-failed`, preserves the corresponding label denominator, and exits non-zero. The regression command:
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-WorkspaceFailure.ps1
+```
+
+passes against a deliberately broken project and requires `CONFIGGAP_COMPILATION_LOAD_FAILURE`. The benchmark also fails on `CONFIGGAP_ZERO_OBSERVATIONS` or `CONFIGGAP_UNEXPECTED_OBSERVATIONS`.
+
+## Clean Windows corpus run
+
+The exact restore-enabled command was run from a fresh scratch root; `-SkipRestore` was not supplied:
 
 ```powershell
 $scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
@@ -37,113 +52,93 @@ pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 `
   -RepositoryRoot (Get-Location).Path `
   -ScratchRoot $scratchRoot `
   -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') `
-  -SkipRestore
+  -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
 ```
 
-The command exited `1`, as required for a failed gate. `-SkipRestore` is explicit because the restore-enabled corpus run stalled before reaching the evaluator on the first legacy repository; it must not be mistaken for a passing package/project compatibility result. The machine-readable output is [metrics.json](metrics.json).
-
-Raw evaluator output:
+The Windows preflight verified OS long-path support and Git `core.longpaths`; the script also accepts a validated scratch root with a full path of at most 80 characters when those prerequisites are unavailable. Each restore has a 30-second bound, each analysis has a 120-second repository bound, and all clones are removed in `finally`.
 
 ```text
+Environment template files found: 2; repositories with .env.example: 1/10
 ConfigGap Phase 0B corpus evaluation
-Repository                       TP/blocking  Predicted  Recall       Dynamic blocking
-------------------------------  -----------  ---------  -----------  ----------------
-aspnet-core-mvc                     0/0              0      8/8                     0
-bookcatalog-api                     0/0              0      0/6                     0
-clean-architecture-jason-taylor      1/1              1      1/1                     0
-clean-architecture-manga            0/0              0      0/3                     0
-clean-minimal-api                   0/0              0      0/1                     0
-dotnet-rpg                          0/0              0      1/1                     0
-eShopOnWeb                          3/3              3      4/4                     0
-fullstackhero-webapi                0/0              0      0/3                     0
-oidcproxy-net                       0/0              0      1/1                     0
-razor-pages-ioptions-samples        0/0              0      1/1                     0
+Repository                       Status       TP/blocking  Supported recall  All-key recall  Dynamic blocking
+------------------------------  -----------  -----------  -----------------  --------------  ----------------
+aspnet-core-mvc                 load-failed      0/0             0/8              0/8                      0
+bookcatalog-api                 load-failed      0/0             0/6              0/6                      0
+clean-architecture-jason-taylor load-failed      0/0             0/1              0/1                      0
+clean-architecture-manga        load-failed      0/0             0/3              0/3                      0
+clean-minimal-api               analyzed         0/0             1/1              1/1                      0
+dotnet-rpg                      analyzed         0/0             1/1              1/1                      0
+eShopOnWeb                      load-failed      0/0             0/4              0/4                      0
+fullstackhero-webapi            load-failed      0/0             0/3              0/3                      0
+oidcproxy-net                   analyzed         0/0             1/1              1/1                      0
+razor-pages-ioptions-samples    analyzed         0/0             1/1              1/1                      0
 
-Blocking precision: 4/4 = 100.00%
-Static-key recall: 16/29 = 55.17%
+Blocking precision: 0/0 = 100.00%
+Supported-domain recall: 4/29 = 13.79%
+All-labeled-static-key recall: 4/29 = 13.79%
 Dynamic blocking findings: 0
-Machine-readable report: research/phase0b/metrics.json
-Duration: 40872 ms
-Restore skipped: True
-Metric command duration: 41627 ms
-Total corpus command duration: 81255 ms
+Load failures: 6
+Verdict: FAIL
+Restore skipped: False
 Scratch clones present after cleanup: False
 ```
 
-The per-repository numerators and denominators are in `metrics.json`. The precision gate passes (`4/4`), the recall gate fails (`16/29`), and the dynamic safety gate passes (`0`). The recall result must be treated as a narrow/insufficient feasibility result rather than tuned by deleting repositories or changing labels.
+The machine-readable result is [metrics.json](metrics.json). The supported denominator is hand-labeled `supportedStatic=true`, `owner=application`, non-null key, and kind `indexer`, `get-value`, `section`, `required-section`, `options-bind`, or `options-bind-configuration`. It excludes dynamic/unresolvable accesses, unsupported/provider-specific forms, and framework-owned keys under nugget section 8. The all-labeled denominator is the same non-null static label set before that supported-kind/framework-owned exclusion. Both memberships are label-defined, never analyzer-defined.
 
-## Performance gate
+## Options and framework-owned negative coverage
 
-No corpus repository was used as a 50-project representative solution. The probe deterministically generated one from the checked-in fixture corpus:
+Options binding now requires the resolved symbol to be the Microsoft `OptionsBuilder<T>.BindConfiguration` extension in `Microsoft.Extensions.DependencyInjection`, with receiver type from `Microsoft.Extensions.Options`. The permanent impostor fixture defines a user `OptionsBuilder<T>.BindConfiguration`; it remains `unknown`. The real Microsoft Options fixture remains recognized. The fixture run reports Options behavior 6/6.
+
+`FrameworkOwnedMissing.cs` accesses `Kestrel:Endpoints:Https:Url` without declaring it. The evaluator reports it as `framework-owned`, not a blocking missing key. A declared framework-owned key remains classified as framework-owned as well. The explicit inventory is implemented in `FrameworkOwnedKeys`; application sections are not suppressed by name resemblance alone.
+
+## Benchmark protocol and bound
+
+The clean benchmark sequence was:
 
 ```powershell
-$scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
+$scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-benchmark'
 $synthetic = Join-Path $scratchRoot 'synthetic-50'
+New-Item -ItemType Directory -Force $scratchRoot | Out-Null
 dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
   --generate-synthetic $synthetic --repository-root . --project-count 50
+dotnet restore (Join-Path $synthetic 'ConfigGap.Synthetic.sln') --nologo --verbosity quiet
 dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
   --analyze-only --repository-root $synthetic `
   --solution (Join-Path $synthetic 'ConfigGap.Synthetic.sln') `
+  --expected-observations 1251 `
   --output (Join-Path $scratchRoot 'performance-1.json')
 dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
   --analyze-only --repository-root $synthetic `
   --solution (Join-Path $synthetic 'ConfigGap.Synthetic.sln') `
+  --expected-observations 1251 `
   --output (Join-Path $scratchRoot 'performance-2.json')
 ```
 
-The generator copied the Phase 0A C# and support sources, created 50 projects and one support project, and copied `appsettings.json`, `appsettings.Production.json`, and `.env.example` into each generated project. The two analysis runs were on the unchanged generated tree. Complete records are in [performance.json](performance.json).
+Restore exited 0; the generated solution contained 51 project entries and 51 unique project GUIDs, and both guarded runs observed exactly 1,251 accesses:
 
 | Run | Observations | Declared surfaces | Wall clock | Peak working set |
 | --- | ---: | ---: | ---: | ---: |
-| Primary | 1,151 | 150 | 21,700 ms | 207,577,088 bytes |
-| Repeat | 1,151 | 150 | 22,718 ms | 202,653,696 bytes |
+| Primary | 1,251 | 150 | 16,905 ms | 215,400,448 bytes |
+| Repeat | 1,251 | 150 | 16,401 ms | 209,768,448 bytes |
 
-Mean wall clock was 22,209 ms; the absolute run difference was 1,018 ms (4.69% from the primary). The frozen v1 regression baseline is `<=22,718 ms` and `<=207,577,088 bytes` for this exact generated solution and machine, not a portable SLA.
+The mean was 16,653 ms; the absolute difference was 504 ms (2.98% from primary). The regenerated bound is `<=16,905 ms` and `<=215,400,448 bytes` for this exact generated solution and machine, not a portable SLA. Complete machine-readable records are in [performance.json](performance.json).
 
-Machine: Windows 10 Pro for Workstations 10.0.19045, x64; Lenovo 82L5; 16 logical processors; 14,877,257,728 bytes physical memory; .NET SDK 8.0.425; MSBuild 17.11.48; PowerShell 7.6.6.
+## `.env.example` evidence and decision
 
-## Framework/provider-owned inventory
+The script enumerated file names repository-wide at each pinned commit without reading `.env` or any template contents. It found two candidate files: `clean-architecture-jason-taylor/src/Web/ClientApp-React/.env` (actual environment file, excluded) and `fullstackhero-webapi/deploy/docker/.env.example` (one `.env.example`, outside the selected application directory). Thus the measured prevalence is **1/10 repositories**, and **0/10 selected application declaration policies**. The evidence is [env-prevalence.json](env-prevalence.json).
 
-The inventory is implemented by `FrameworkOwnedKeys` and is deliberately explicit. A key equal to an entry or below an entry's `:` hierarchy is excluded from application blocking findings. Application sections such as `Authentication`, `Identity`, `Serilog`, and custom provider sections remain application-owned. Raw `ASPNETCORE_` and `DOTNET_` spellings of the documented host keys are also reserved because the environment provider strips those prefixes when loading host configuration.
-
-| Inventory | Primary evidence | v1 treatment |
-| --- | --- | --- |
-| `Kestrel:*`, `HTTP_PORTS`, `HTTPS_PORTS`, `urls`, `https_port` | [Kestrel configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/endpoints?view=aspnetcore-9.0), [Generic Host web settings](https://learn.microsoft.com/en-my/aspnet/core/fundamentals/host/generic-host?view=aspnetcore-8.0) | Framework-owned; never an application drift error. |
-| `Logging:*` | [ASP.NET Core logging configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-8.0) | Framework/provider-owned; never an application drift error. |
-| `AllowedHosts` | [Host filtering and proxy configuration](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0), [HTTPS configuration example](https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl?view=aspnetcore-10.0) | Framework middleware-owned; never an application drift error. |
-| `ForwardedHeaders:*`, `FORWARDEDHEADERS_ENABLED` | [Proxy and load balancer configuration](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0) | Framework middleware-owned; never an application drift error. |
-| `ConnectionStrings:*` | [ASP.NET Core configuration keys and connection-string provider rules](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-9.0) | Provider-owned root in v1; never an application drift error. Values are never read or emitted. |
-| `applicationName`, `contentRoot`, `environment`, `webroot` and their raw prefixed environment names | [.NET Generic Host host settings](https://learn.microsoft.com/en-my/aspnet/core/fundamentals/host/generic-host?view=aspnetcore-8.0) | Host-owned; never an application drift error. |
-| `shutdownTimeoutSeconds`, `hostBuilder:reloadConfigOnChange`, startup/error/status/lifecycle settings (`captureStartupErrors`, `detailedErrors`, `hostingStartupAssemblies`, `hostingStartupExcludeAssemblies`, `preferHostingUrls`, `preventHostingStartup`, `startupAssembly`, `suppressStatusMessages`) and prefixed forms | [.NET Generic Host configuration settings](https://learn.microsoft.com/en-my/aspnet/core/fundamentals/host/generic-host?view=aspnetcore-8.0) | Host-owned; never an application drift error. |
-
-This inventory covers the ordinary ASP.NET Core web-host and generic-host keys documented by Microsoft. It does not suppress arbitrary application configuration merely because a name sounds infrastructural.
-
-## `.env.example` decision
-
-`.env.example` is **not a first-class v1 declaration surface**. The independent corpus-label audit found `0/10` selected repository label files listing a `.env.example` file:
-
-```powershell
-$count = 0
-Get-ChildItem .\research\phase0b\labels -Filter '*.json' | ForEach-Object {
-  $label = Get-Content -Raw $_.FullName | ConvertFrom-Json
-  if (@($label.reviewedFiles | Where-Object { $_.path -match '(^|/)\.env\.example$' }).Count -gt 0) { $count++ }
-}
-Write-Output "Label files listing .env.example: $count/10"
-```
-
-Output: `Label files listing .env.example: 0/10`. The synthetic benchmark includes `.env.example` only to preserve Phase 0A fixture coverage; that is not corpus prevalence evidence. Defer the surface in v1. If later demand justifies templates, use a generic explicitly declared template abstraction with a named path and parser, rather than baking one filename into the product contract. Actual `.env` files remain out of scope and are not read.
+`.env.example` remains deferred as a first-class v1 declaration surface. Actual `.env` files are out of scope and were not read.
 
 ## Gate mapping
 
 | Specification gate | Evidence | Result |
 | --- | --- | --- |
-| 7.3 precision >=95% | 4/4 = 100.00% | PASS |
-| 7.3 recall >=90% | 16/29 = 55.17% | FAIL; recall is the named cause for narrowing |
-| 7.3 dynamic access causes zero blocking findings | 0 | PASS |
-| 7.3 fixture normalization and Options behavior | Phase 0A output: normalization 2/2, Options 5/5 | PASS |
-| 7.4 practical ~50-project performance | 21,700 ms and 22,718 ms; peak 207,577,088 bytes | PASS as a measured seconds-scale baseline |
-| 7.5 framework inventory | Explicit code list and Microsoft sources above | COMPLETE for ordinary ASP.NET Core host/provider keys |
-| 7.5 `.env.example` research | 0/10 corpus label files | Decision recorded: defer first-class support |
-| 7.6 park/narrow conditions | Recall below threshold; legacy restore/project compatibility remains unresolved | NARROW |
-
-The result is deliberately not a PASS. The parent decision is required before any durable product CLI, packaging, telemetry, or release work.
+| Blocking precision >=95% | 0/0 = 100.00% | PASS, vacuous because load failures left no predictions |
+| Supported-domain recall >=90% | 4/29 = 13.79% | FAIL |
+| All-labeled-static recall | 4/29 = 13.79% | Reported separately; not used to hide exclusions |
+| Dynamic access causes zero blocking findings | 0 | PASS |
+| Fixture normalization and Options behavior | 2/2 normalization; 6/6 Options; 26/26 patterns | PASS |
+| Workspace/load-failure safety | Broken fixture names compilation failure; 6 restore failures retained | PASS for fail-closed behavior; corpus gate FAIL |
+| Practical ~50-project performance | 16,905 ms maximum; 215,400,448-byte maximum | PASS as a measured seconds-scale bound |
+| `.env.example` research | 1/10 repository-wide; 0/10 selected app policies | Decision recorded: defer |
+| Overall fix-round verdict | Six load failures and recall below threshold | FAIL |

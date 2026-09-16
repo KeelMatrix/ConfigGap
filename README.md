@@ -16,6 +16,45 @@ dotnet run --project tools/ConfigGap.Probe/ConfigGap.Probe.csproj -c Release --n
 
 The command exits non-zero if a hand-labeled fixture does not match the observed semantic result. The JSON result is written under `artifacts/`, which is ignored by Git.
 
+The semantic loader fails closed. A missing compilation, compiler error, MSBuildWorkspace failure, missing selected project, or zero-observation benchmark produces a named `CONFIGGAP_*` diagnostic and a non-zero exit instead of a clean result. The workspace regression can be run with:
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-WorkspaceFailure.ps1
+```
+
+The Options binding fixture requires the resolved method to be the Microsoft `OptionsBuilder<T>.BindConfiguration` extension. A user-defined type with the same name is retained as `unknown`.
+
 Supported key resolution is deliberately bounded to string literals, `const` values, statically resolvable concatenations, and interpolations whose parts are statically resolvable. Variables, parameters, method calls, computed values, and configuration-supplied key expressions are reported as `unknown`.
 
 The workspace path is registered with `Microsoft.Build.Locator`, and fixture projects are opened with `Microsoft.CodeAnalysis.Workspaces.MSBuild` so project references and compilation references are resolved by MSBuild rather than by regular-expression scanning. The Options fixture uses the framework's `BindConfiguration` API rather than a local substitute.
+
+The pinned real-repository evaluation is reproducible from a clean scratch directory. It restores every selected project before evaluation, records per-repository restore/load failures, bounds restore at 30 seconds and analysis at 120 seconds per repository, and exits non-zero for any load failure:
+
+```powershell
+$scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
+pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 `
+  -RepositoryRoot (Get-Location).Path `
+  -ScratchRoot $scratchRoot `
+  -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') `
+  -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
+```
+
+On Windows, the script verifies OS long-path support and uses `git -c core.longpaths=true` for scratch clones. It removes all clones after evaluation. The report includes supported-domain recall, all-labeled-static-key recall, blocking precision, dynamic-blocking count, status for every repository, and load-failure count.
+
+The performance protocol uses a clean generated solution. Restore it before both measurements and pass the expected deterministic observation count:
+
+```powershell
+$scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
+$synthetic = Join-Path $scratchRoot 'synthetic-50'
+New-Item -ItemType Directory -Force $scratchRoot | Out-Null
+dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
+  --generate-synthetic $synthetic --repository-root . --project-count 50
+dotnet restore (Join-Path $synthetic 'ConfigGap.Synthetic.sln') --nologo
+dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
+  --analyze-only --repository-root $synthetic `
+  --solution (Join-Path $synthetic 'ConfigGap.Synthetic.sln') `
+  --expected-observations 1251 `
+  --output (Join-Path $scratchRoot 'performance-1.json')
+```
+
+Run the last command a second time for the repeat measurement. Generated solution project GUIDs are unique, including the support project.

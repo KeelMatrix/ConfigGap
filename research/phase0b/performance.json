@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "method": "SyntheticSolutionGenerator copied the Phase 0A FixtureConsumer and FixtureSupport source corpus, wrote a minimal net8.0 Directory.Build.props, generated 50 deterministic FixtureConsumer projects with project references, appsettings files, and a ConfigGap.Synthetic.sln.",
+  "method": "SyntheticSolutionGenerator copied the FixtureConsumer and FixtureSupport source corpus, wrote a minimal net8.0 Directory.Build.props, generated 50 deterministic FixtureConsumer projects with project references, restored ConfigGap.Synthetic.sln, and ran the guarded analyzer twice on the unchanged generated tree. The analyzer required exactly 1251 observations and failed on zero or unexpected counts.",
   "primary": {
-    "observationCount": 1151,
+    "observationCount": 1251,
     "declaredSurfaceCount": 150,
-    "durationMilliseconds": 21700,
-    "peakWorkingSetBytes": 207577088
+    "durationMilliseconds": 16905,
+    "peakWorkingSetBytes": 215400448
   },
   "repeat": {
-    "observationCount": 1151,
+    "observationCount": 1251,
     "declaredSurfaceCount": 150,
-    "durationMilliseconds": 22718,
-    "peakWorkingSetBytes": 202653696
+    "durationMilliseconds": 16401,
+    "peakWorkingSetBytes": 209768448
   },
   "variance": {
-    "wallClockMeanMilliseconds": 22209,
-    "absoluteDifferenceMilliseconds": 1018,
-    "differencePercentFromPrimary": 4.69,
-    "maximumWallClockMilliseconds": 22718,
-    "maximumPeakWorkingSetBytes": 207577088
+    "wallClockMeanMilliseconds": 16653,
+    "absoluteDifferenceMilliseconds": 504,
+    "differencePercentFromPrimary": 2.98,
+    "maximumWallClockMilliseconds": 16905,
+    "maximumPeakWorkingSetBytes": 215400448
   },
   "machine": {
     "os": "Windows 10 Pro for Workstations 10.0.19045 (win-x64)",
@@ -29,9 +29,9 @@
     "powershell": "7.6.6"
   },
   "frozenV1Baseline": {
-    "scope": "The exact generated 50-project solution and machine description above.",
-    "maximumWallClockMilliseconds": 22718,
-    "maximumPeakWorkingSetBytes": 207577088,
+    "scope": "The exact generated 50-project solution, 1251-observation guard, and machine description above.",
+    "maximumWallClockMilliseconds": 16905,
+    "maximumPeakWorkingSetBytes": 215400448,
     "interpretation": "This is a measured regression baseline, not a portable SLA. A later candidate must report against the same generation method before changing the bound."
   }
 }

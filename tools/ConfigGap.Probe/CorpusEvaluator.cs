@@ -1,15 +1,28 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace KeelMatrix.ConfigGap.Probe;
 
 internal static class CorpusEvaluator
 {
+    private static readonly TimeSpan RepositoryTimeout = TimeSpan.FromSeconds(120);
+    private static readonly HashSet<string> SupportedKinds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "indexer",
+        "get-value",
+        "section",
+        "required-section",
+        "options-bind",
+        "options-bind-configuration"
+    };
+
     public static async Task<int> RunAsync(
         string indexPath,
         string labelsRoot,
         string clonesRoot,
-        string outputPath)
+        string outputPath,
+        string? preflightFailuresPath = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var index = JsonSerializer.Deserialize<CorpusIndex>(await File.ReadAllTextAsync(indexPath), CorpusJson.ReadOptions)
@@ -20,7 +33,12 @@ internal static class CorpusEvaluator
             throw new InvalidOperationException("The corpus index must be version 1 and contain 10 to 20 repositories.");
         }
 
-        var report = new CorpusEvaluationReport();
+        var preflightFailures = LoadPreflightFailures(preflightFailuresPath);
+        var report = new CorpusEvaluationReport
+        {
+            RepositoryTimeoutSeconds = (int)RepositoryTimeout.TotalSeconds
+        };
+
         foreach (var repository in index.Repositories.OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             var clonePath = Path.Combine(clonesRoot, repository.Id);
@@ -45,14 +63,76 @@ internal static class CorpusEvaluator
 
             Console.WriteLine($"Analyzing {repository.Id} ({label.Solution})");
             var declarations = DeclarationGraph.Load(clonePath);
-            var observations = solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
-                ? await SemanticProbe.AnalyzeProjectAsync(solutionPath, clonePath)
-                : await SemanticProbe.AnalyzeAsync(solutionPath, clonePath);
-            var labeledStatic = label.Accesses
-                .Where(access => access.SupportedStatic && access.Key is not null)
-                .Where(access => !string.Equals(access.Owner, "framework", StringComparison.OrdinalIgnoreCase))
-                .Select(access => KeyNormalizer.Normalize(access.Key!))
+            var labeledStatic = GetLabeledKeys(label, includeFrameworkOwned: false);
+            var allLabeledStatic = GetLabeledKeys(label, includeFrameworkOwned: true);
+            var labeledMissing = labeledStatic
+                .Where(key => !declarations.Contains(key) && !FrameworkOwnedKeys.IsOwned(key))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var dynamicAccesses = label.Accesses.Where(access => !access.SupportedStatic && access.Key is null).ToArray();
+
+            CorpusRepositoryResult result;
+            if (preflightFailures.TryGetValue(repository.Id, out var preflightFailure))
+            {
+                result = CreateLoadFailureResult(
+                    repository,
+                    labeledStatic,
+                    allLabeledStatic,
+                    labeledMissing,
+                    dynamicAccesses,
+                    "CONFIGGAP_RESTORE_FAILURE",
+                    preflightFailure);
+            }
+            else
+            {
+                result = await AnalyzeRepositoryAsync(
+                    repository,
+                    solutionPath,
+                    clonePath,
+                    declarations,
+                    labeledStatic,
+                    allLabeledStatic,
+                    labeledMissing,
+                    dynamicAccesses);
+            }
+
+            report.Repositories.Add(result);
+            AddToReport(report, result);
+        }
+
+        report.RepositoryCount = report.Repositories.Count;
+        report.BlockingPrecision = Percentage(report.StaticKeyTruePositives, report.StaticKeyPredictions);
+        report.StaticKeyRecall = Percentage(report.StaticKeyRecallNumerator, report.StaticKeyRecallDenominator);
+        report.AllLabeledStaticRecall = Percentage(report.AllLabeledStaticRecallNumerator, report.AllLabeledStaticRecallDenominator);
+        report.DynamicAccessesNeverBlock = report.DynamicBlockingFindings == 0;
+        report.Verdict = report.LoadFailureCount > 0
+            ? "FAIL"
+            : report.BlockingPrecision >= 95m && report.StaticKeyRecall >= 90m && report.DynamicAccessesNeverBlock
+                ? "PASS"
+                : "NARROW";
+
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(report, CorpusJson.WriteOptions) + Environment.NewLine);
+        PrintReport(report, outputPath, stopwatch.Elapsed);
+        return report.Verdict == "PASS" ? 0 : 1;
+    }
+
+    private static async Task<CorpusRepositoryResult> AnalyzeRepositoryAsync(
+        CorpusRepository repository,
+        string solutionPath,
+        string clonePath,
+        DeclarationGraph declarations,
+        HashSet<string> labeledStatic,
+        HashSet<string> allLabeledStatic,
+        HashSet<string> labeledMissing,
+        IReadOnlyList<CorpusAccessLabel> dynamicAccesses)
+    {
+        using var timeout = new CancellationTokenSource();
+        try
+        {
+            var observationsTask = solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                ? SemanticProbe.AnalyzeProjectAsync(solutionPath, clonePath, timeout.Token)
+                : SemanticProbe.AnalyzeAsync(solutionPath, clonePath, timeout.Token);
+            var observations = await observationsTask.WaitAsync(RepositoryTimeout);
             var analyzerStatic = observations
                 .Where(observation => observation.Key is not null)
                 .Select(observation => KeyNormalizer.Normalize(observation.Key!))
@@ -60,58 +140,158 @@ internal static class CorpusEvaluator
             var analyzerMissing = analyzerStatic
                 .Where(key => !declarations.Contains(key) && !FrameworkOwnedKeys.IsOwned(key))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var labeledMissing = labeledStatic
-                .Where(key => !declarations.Contains(key) && !FrameworkOwnedKeys.IsOwned(key))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var falsePositiveKeys = analyzerMissing.Except(labeledMissing, StringComparer.OrdinalIgnoreCase).OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList();
-            var truePositiveCount = analyzerMissing.Intersect(labeledMissing, StringComparer.OrdinalIgnoreCase).Count();
-            var recallCount = analyzerStatic.Intersect(labeledStatic, StringComparer.OrdinalIgnoreCase).Count();
-            var dynamicAccesses = label.Accesses.Where(access => !access.SupportedStatic && access.Key is null).ToArray();
-            var dynamicBlocking = dynamicAccesses
-                .Where(access => observations.Any(observation =>
-                    observation.Source.Equals(access.Source, StringComparison.OrdinalIgnoreCase) &&
-                    observation.Line == access.Line &&
-                    (access.Column is null || observation.Column == access.Column.Value) &&
-                    observation.Key is not null &&
-                    !declarations.Contains(observation.Key) &&
-                    !FrameworkOwnedKeys.IsOwned(observation.Key)))
-                .Select(access => $"{access.Source}:{access.Line}")
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
+            var falsePositiveKeys = analyzerMissing
+                .Except(labeledMissing, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var dynamicBlocking = CountDynamicBlocking(dynamicAccesses, observations, declarations);
 
-            var result = new CorpusRepositoryResult
+            return new CorpusRepositoryResult
             {
                 Id = repository.Id,
                 CommitSha = repository.CommitSha,
+                Status = "analyzed",
                 AnalyzerStaticKeys = analyzerStatic.Count,
                 LabeledStaticKeys = labeledStatic.Count,
-                BlockingTruePositives = truePositiveCount,
+                AllLabeledStaticKeys = allLabeledStatic.Count,
+                BlockingTruePositives = analyzerMissing.Intersect(labeledMissing, StringComparer.OrdinalIgnoreCase).Count(),
                 BlockingPredictions = analyzerMissing.Count,
-                RecallNumerator = recallCount,
+                RecallNumerator = analyzerStatic.Intersect(labeledStatic, StringComparer.OrdinalIgnoreCase).Count(),
                 RecallDenominator = labeledStatic.Count,
-                LabeledDynamicAccesses = dynamicAccesses.Length,
+                AllRecallNumerator = analyzerStatic.Intersect(allLabeledStatic, StringComparer.OrdinalIgnoreCase).Count(),
+                AllRecallDenominator = allLabeledStatic.Count,
+                LabeledDynamicAccesses = dynamicAccesses.Count,
                 DynamicBlockingFindings = dynamicBlocking,
                 AnalyzerMissingKeys = analyzerMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
                 LabeledMissingKeys = labeledMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
                 FalsePositiveKeys = falsePositiveKeys
             };
-            report.Repositories.Add(result);
-            report.StaticKeyTruePositives += truePositiveCount;
-            report.StaticKeyPredictions += analyzerMissing.Count;
-            report.StaticKeyRecallNumerator += recallCount;
-            report.StaticKeyRecallDenominator += labeledStatic.Count;
-            report.DynamicBlockingFindings += dynamicBlocking;
+        }
+        catch (TimeoutException)
+        {
+            timeout.Cancel();
+            return CreateLoadFailureResult(
+                repository,
+                labeledStatic,
+                allLabeledStatic,
+                labeledMissing,
+                dynamicAccesses,
+                "CONFIGGAP_REPOSITORY_TIMEOUT",
+                $"Analysis exceeded the {RepositoryTimeout.TotalSeconds:0}-second per-repository limit.");
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            return CreateLoadFailureResult(
+                repository,
+                labeledStatic,
+                allLabeledStatic,
+                labeledMissing,
+                dynamicAccesses,
+                "CONFIGGAP_REPOSITORY_TIMEOUT",
+                $"Analysis exceeded the {RepositoryTimeout.TotalSeconds:0}-second per-repository limit.");
+        }
+        catch (Exception exception)
+        {
+            var message = SanitizeFailure(exception.Message);
+            return CreateLoadFailureResult(
+                repository,
+                labeledStatic,
+                allLabeledStatic,
+                labeledMissing,
+                dynamicAccesses,
+                FailureCode(message),
+                message.Length > 600 ? message[..600] : message);
+        }
+    }
+
+    private static CorpusRepositoryResult CreateLoadFailureResult(
+        CorpusRepository repository,
+        HashSet<string> labeledStatic,
+        HashSet<string> allLabeledStatic,
+        HashSet<string> labeledMissing,
+        IReadOnlyList<CorpusAccessLabel> dynamicAccesses,
+        string code,
+        string message) => new()
+        {
+            Id = repository.Id,
+            CommitSha = repository.CommitSha,
+            Status = "load-failed",
+            LoadFailureCode = code,
+            LoadFailure = SanitizeFailure(message),
+            LabeledStaticKeys = labeledStatic.Count,
+            AllLabeledStaticKeys = allLabeledStatic.Count,
+            RecallDenominator = labeledStatic.Count,
+            AllRecallDenominator = allLabeledStatic.Count,
+            LabeledDynamicAccesses = dynamicAccesses.Count,
+            LabeledMissingKeys = labeledMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList()
+        };
+
+    private static void AddToReport(CorpusEvaluationReport report, CorpusRepositoryResult result)
+    {
+        report.StaticKeyTruePositives += result.BlockingTruePositives;
+        report.StaticKeyPredictions += result.BlockingPredictions;
+        report.StaticKeyRecallNumerator += result.RecallNumerator;
+        report.StaticKeyRecallDenominator += result.RecallDenominator;
+        report.AllLabeledStaticRecallNumerator += result.AllRecallNumerator;
+        report.AllLabeledStaticRecallDenominator += result.AllRecallDenominator;
+        report.DynamicBlockingFindings += result.DynamicBlockingFindings;
+        if (result.Status == "load-failed")
+        {
+            report.LoadFailureCount++;
+        }
+    }
+
+    private static HashSet<string> GetLabeledKeys(CorpusLabel label, bool includeFrameworkOwned) =>
+        label.Accesses
+            .Where(access => access.SupportedStatic && access.Key is not null)
+            .Where(access => includeFrameworkOwned || SupportedKinds.Contains(access.Kind))
+            .Where(access => includeFrameworkOwned || !string.Equals(access.Owner, "framework", StringComparison.OrdinalIgnoreCase))
+            .Select(access => KeyNormalizer.Normalize(access.Key!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private static int CountDynamicBlocking(
+        IReadOnlyList<CorpusAccessLabel> dynamicAccesses,
+        IReadOnlyList<ObservedAccess> observations,
+        DeclarationGraph declarations) =>
+        dynamicAccesses
+            .Where(access => observations.Any(observation =>
+                observation.Source.Equals(access.Source, StringComparison.OrdinalIgnoreCase) &&
+                observation.Line == access.Line &&
+                (access.Column is null || observation.Column == access.Column.Value) &&
+                observation.Key is not null &&
+                !declarations.Contains(observation.Key) &&
+                !FrameworkOwnedKeys.IsOwned(observation.Key)))
+            .Select(access => $"{access.Source}:{access.Line}")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static Dictionary<string, string> LoadPreflightFailures(string? path)
+    {
+        if (path is null || !File.Exists(path))
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        report.RepositoryCount = report.Repositories.Count;
-        report.BlockingPrecision = Percentage(report.StaticKeyTruePositives, report.StaticKeyPredictions);
-        report.StaticKeyRecall = Percentage(report.StaticKeyRecallNumerator, report.StaticKeyRecallDenominator);
-        report.DynamicAccessesNeverBlock = report.DynamicBlockingFindings == 0;
+        var failures = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path), CorpusJson.ReadOptions);
+        return failures is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(failures, StringComparer.OrdinalIgnoreCase);
+    }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-        await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(report, CorpusJson.WriteOptions) + Environment.NewLine);
-        PrintReport(report, outputPath, stopwatch.Elapsed);
-        return report.BlockingPrecision >= 95m && report.StaticKeyRecall >= 90m && report.DynamicAccessesNeverBlock ? 0 : 1;
+    private static string FailureCode(string message)
+    {
+        var separator = message.IndexOf(':');
+        return separator > 0 && message[..separator].StartsWith("CONFIGGAP_", StringComparison.Ordinal)
+            ? message[..separator]
+            : "CONFIGGAP_CORPUS_ANALYSIS_FAILURE";
+    }
+
+    private static string SanitizeFailure(string message)
+    {
+        var compact = message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        compact = Regex.Replace(compact, "(?i)[a-z]:\\\\[^\\s'\\\"]+", "<path>");
+        compact = Regex.Replace(compact, @"(?i)(?<![a-z0-9])/(?:[^\s/]+/)+[^\s]+", "<path>");
+        return compact.Length > 600 ? compact[..600] : compact;
     }
 
     private static decimal Percentage(int numerator, int denominator) =>
@@ -120,17 +300,24 @@ internal static class CorpusEvaluator
     private static void PrintReport(CorpusEvaluationReport report, string outputPath, TimeSpan duration)
     {
         Console.WriteLine("ConfigGap Phase 0B corpus evaluation");
-        Console.WriteLine("Repository                       TP/blocking  Predicted  Recall       Dynamic blocking");
-        Console.WriteLine("------------------------------  -----------  ---------  -----------  ----------------");
+        Console.WriteLine("Repository                       Status       TP/blocking  Supported recall  All-key recall  Dynamic blocking");
+        Console.WriteLine("------------------------------  -----------  -----------  -----------------  --------------  ----------------");
         foreach (var item in report.Repositories)
         {
-            Console.WriteLine($"{item.Id,-30}  {item.BlockingTruePositives,5}/{item.BlockingPredictions,-5}  {item.BlockingPredictions,9}  {item.RecallNumerator,5}/{item.RecallDenominator,-5}  {item.DynamicBlockingFindings,16}");
+            Console.WriteLine($"{item.Id,-30}  {item.Status,-11}  {item.BlockingTruePositives,5}/{item.BlockingPredictions,-5}  {item.RecallNumerator,8}/{item.RecallDenominator,-7}  {item.AllRecallNumerator,7}/{item.AllRecallDenominator,-6}  {item.DynamicBlockingFindings,16}");
+            if (item.LoadFailureCode is not null)
+            {
+                Console.WriteLine($"  load failure: {item.LoadFailureCode}: {item.LoadFailure}");
+            }
         }
 
         Console.WriteLine();
         Console.WriteLine($"Blocking precision: {report.StaticKeyTruePositives}/{report.StaticKeyPredictions} = {report.BlockingPrecision:F2}%");
-        Console.WriteLine($"Static-key recall: {report.StaticKeyRecallNumerator}/{report.StaticKeyRecallDenominator} = {report.StaticKeyRecall:F2}%");
+        Console.WriteLine($"Supported-domain recall: {report.StaticKeyRecallNumerator}/{report.StaticKeyRecallDenominator} = {report.StaticKeyRecall:F2}%");
+        Console.WriteLine($"All-labeled-static-key recall: {report.AllLabeledStaticRecallNumerator}/{report.AllLabeledStaticRecallDenominator} = {report.AllLabeledStaticRecall:F2}%");
         Console.WriteLine($"Dynamic blocking findings: {report.DynamicBlockingFindings}");
+        Console.WriteLine($"Load failures: {report.LoadFailureCount}");
+        Console.WriteLine($"Verdict: {report.Verdict}");
         Console.WriteLine($"Machine-readable report: {Path.GetFullPath(outputPath)}");
         Console.WriteLine($"Duration: {duration.TotalMilliseconds:F0} ms");
     }

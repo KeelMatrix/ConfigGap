@@ -66,14 +66,22 @@ internal sealed class CorpusEvaluationReport
     public string Analyzer { get; set; } = "MSBuildWorkspace/Roslyn semantic probe";
     public string Protocol { get; set; } = "Distinct normalized configuration keys per repository; labels are independent manual truth data.";
     public int RepositoryCount { get; set; }
+    public int RepositoryTimeoutSeconds { get; set; }
     public int StaticKeyTruePositives { get; set; }
     public int StaticKeyPredictions { get; set; }
     public int StaticKeyRecallNumerator { get; set; }
     public int StaticKeyRecallDenominator { get; set; }
+    public int AllLabeledStaticRecallNumerator { get; set; }
+    public int AllLabeledStaticRecallDenominator { get; set; }
     public int DynamicBlockingFindings { get; set; }
+    public int LoadFailureCount { get; set; }
     public bool DynamicAccessesNeverBlock { get; set; }
     public decimal BlockingPrecision { get; set; }
     public decimal StaticKeyRecall { get; set; }
+    public decimal AllLabeledStaticRecall { get; set; }
+    public string Verdict { get; set; } = "FAIL";
+    public string RecallDomain { get; set; } =
+        "Supported static application accesses are hand-labeled supportedStatic=true, owner=application, with a non-null key and kind indexer, get-value, section, required-section, options-bind, or options-bind-configuration. Exclude dynamic/unresolvable, unsupported APIs, framework-owned keys, and provider-specific forms under section 8; membership is determined from labels, never from analyzer output.";
     public List<CorpusRepositoryResult> Repositories { get; set; } = [];
 }
 
@@ -81,12 +89,18 @@ internal sealed class CorpusRepositoryResult
 {
     public string Id { get; set; } = string.Empty;
     public string CommitSha { get; set; } = string.Empty;
+    public string Status { get; set; } = "analyzed";
+    public string? LoadFailureCode { get; set; }
+    public string? LoadFailure { get; set; }
     public int AnalyzerStaticKeys { get; set; }
     public int LabeledStaticKeys { get; set; }
+    public int AllLabeledStaticKeys { get; set; }
     public int BlockingTruePositives { get; set; }
     public int BlockingPredictions { get; set; }
     public int RecallNumerator { get; set; }
     public int RecallDenominator { get; set; }
+    public int AllRecallNumerator { get; set; }
+    public int AllRecallDenominator { get; set; }
     public int LabeledDynamicAccesses { get; set; }
     public int DynamicBlockingFindings { get; set; }
     public List<string> AnalyzerMissingKeys { get; set; } = [];

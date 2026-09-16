@@ -13,6 +13,7 @@
     { "id": "environment-double-underscore", "source": "fixtures/FixtureConsumer/Patterns/EnvironmentDoubleUnderscore.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["PAYMENTS:PROVIDER:APIKEY"] },
     { "id": "environment-specific-settings", "source": "fixtures/FixtureConsumer/Patterns/EnvironmentSpecificSettings.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["ProductionOnly:Endpoint"] },
     { "id": "framework-owned-key", "source": "fixtures/FixtureConsumer/Patterns/FrameworkOwnedKey.cs", "kind": "indexer", "owner": "framework", "expectedClassification": "declared", "expectedKeys": ["Kestrel:Endpoints:Http:Url"] },
+    { "id": "framework-owned-missing", "source": "fixtures/FixtureConsumer/Patterns/FrameworkOwnedMissing.cs", "kind": "indexer", "owner": "framework", "expectedClassification": "framework-owned", "expectedKeys": ["Kestrel:Endpoints:Https:Url"] },
     { "id": "get-required-section", "source": "fixtures/FixtureConsumer/Patterns/GetRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
     { "id": "get-section", "source": "fixtures/FixtureConsumer/Patterns/GetSection.cs", "kind": "section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
     { "id": "get-value", "source": "fixtures/FixtureConsumer/Patterns/GetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
@@ -24,6 +25,7 @@
     { "id": "nested-options", "source": "fixtures/FixtureConsumer/Patterns/NestedOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "nullable-options", "source": "fixtures/FixtureConsumer/Patterns/NullableOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "options-bind", "source": "fixtures/FixtureConsumer/Patterns/OptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
+    { "id": "options-builder-impostor", "source": "fixtures/FixtureConsumer/Patterns/OptionsBuilderImpostor.cs", "kind": "options-bind-configuration", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "prefix-access", "source": "fixtures/FixtureConsumer/Patterns/PrefixAccess.cs", "kind": "prefix", "expectedClassification": "declared", "expectedKeys": ["Features"] }
   ]
 }

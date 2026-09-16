@@ -3,6 +3,7 @@ param(
     [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$ScratchRoot = (Join-Path $env:TEMP "configgap-phase0b-$PID"),
     [string]$OutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'research/phase0b/metrics.json'),
+    [string]$EnvEvidencePath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'research/phase0b/env-prevalence.json'),
     [switch]$SkipRestore
 )
 
@@ -13,65 +14,208 @@ $labelsRoot = Join-Path $repo 'research/phase0b/labels'
 $probeProject = Join-Path $repo 'tools/ConfigGap.Probe/ConfigGap.Probe.csproj'
 $scratch = [IO.Path]::GetFullPath($ScratchRoot)
 $clonesRoot = Join-Path $scratch 'corpus-clones'
+$preflightPath = Join-Path $scratch 'preflight-failures.json'
 $output = [IO.Path]::GetFullPath($OutputPath)
+$envEvidenceOutput = [IO.Path]::GetFullPath($EnvEvidencePath)
+$restoreTimeoutSeconds = 30
+$commandTimeoutSeconds = 300
 
 if (-not (Test-Path -LiteralPath $indexPath)) { throw "Corpus index not found: $indexPath" }
 if (-not (Test-Path -LiteralPath $labelsRoot)) { throw "Corpus labels not found: $labelsRoot" }
 if (-not (Test-Path -LiteralPath $probeProject)) { throw "Probe project not found: $probeProject" }
 
+if ($IsWindows) {
+    $longPathsEnabled = (Get-ItemPropertyValue 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -ErrorAction SilentlyContinue) -eq 1
+    $gitLongPathsEnabled = ((& git -c core.longpaths=true config --get core.longpaths 2>$null) -join '').Trim() -eq 'true'
+    if ((-not $longPathsEnabled -or -not $gitLongPathsEnabled) -and $scratch.Length -gt 80) {
+        throw 'CONFIGGAP_LONG_PATH_PREREQUISITE: Windows long paths are unavailable and the scratch root is not short enough. Enable LongPathsEnabled and Git core.longpaths, or provide a validated scratch root whose full path is at most 80 characters.'
+    }
+}
+
+function Invoke-BoundedCommand {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [string]$WorkingDirectory = $repo
+    )
+
+    $startInfo = [Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.WorkingDirectory = $WorkingDirectory
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in $Arguments) {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "Could not start $FilePath."
+        }
+
+        $standardOutput = $process.StandardOutput.ReadToEndAsync()
+        $standardError = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $process.Kill($true) } catch { }
+            throw "CONFIGGAP_COMMAND_TIMEOUT: $FilePath exceeded the $TimeoutSeconds-second limit."
+        }
+
+        [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            StandardOutput = $standardOutput.GetAwaiter().GetResult()
+            StandardError = $standardError.GetAwaiter().GetResult()
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+function Write-CommandOutput {
+    param([Parameter(Mandatory = $true)]$Result)
+    if ($Result.StandardOutput) {
+        $standardOutput = $Result.StandardOutput.TrimEnd()
+        Write-Output $(if ($standardOutput.Length -gt 4000) { $standardOutput.Substring(0, 4000) + ' ...[output truncated]' } else { $standardOutput })
+    }
+    if ($Result.StandardError) {
+        $standardError = $Result.StandardError.TrimEnd()
+        Write-Output $(if ($standardError.Length -gt 4000) { $standardError.Substring(0, 4000) + ' ...[output truncated]' } else { $standardError })
+    }
+}
+
+function Compact-Error {
+    param([Parameter(Mandatory = $true)][string]$Text)
+    $compact = ($Text -replace '[\r\n]+', ' ').Trim()
+    $compact = [regex]::Replace($compact, '(?i)[a-z]:\\[^\s''"]+', '<path>')
+    $compact = [regex]::Replace($compact, '(?i)(?<![a-z0-9])/(?:[^\s/]+/)+[^\s]+', '<path>')
+    if ($compact.Length -gt 500) { return $compact.Substring(0, 500) }
+    return $compact
+}
+
+if (Test-Path -LiteralPath $clonesRoot) {
+    Remove-Item -LiteralPath $clonesRoot -Recurse -Force
+    if (Test-Path -LiteralPath $clonesRoot) {
+        throw "CONFIGGAP_SCRATCH_CLEANUP_FAILURE: could not remove the previous corpus clone root '$clonesRoot'. Use a new clean scratch root and retry."
+    }
+}
 New-Item -ItemType Directory -Force -Path $clonesRoot | Out-Null
 $index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
+$preflightFailures = [ordered]@{}
+$environmentTemplateEvidence = [System.Collections.Generic.List[object]]::new()
 $clock = [Diagnostics.Stopwatch]::StartNew()
+$probeExitCode = 0
 try {
     foreach ($repository in $index.repositories) {
         $target = Join-Path $clonesRoot $repository.id
         if (Test-Path -LiteralPath $target) {
-            Remove-Item -LiteralPath $target -Recurse -Force
+            $resolvedTarget = [IO.Path]::GetFullPath($target)
+            if (-not $resolvedTarget.StartsWith($clonesRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Refusing to remove a path outside the corpus scratch root: $resolvedTarget"
+            }
+            Remove-Item -LiteralPath $resolvedTarget -Recurse -Force
         }
 
         Write-Output "Cloning $($repository.id) at $($repository.commitSha)"
-        & git clone --depth 1 --no-tags --no-checkout $repository.url $target 2>&1 | Write-Output
-        if ($LASTEXITCODE -ne 0) { throw "Clone failed for $($repository.id) with exit code $LASTEXITCODE." }
-
-        & git -C $target cat-file -e "$($repository.commitSha)^{commit}" 2>$null
-        if ($LASTEXITCODE -ne 0) {
-            & git -C $target fetch --depth 1 origin $repository.commitSha 2>&1 | Write-Output
-            if ($LASTEXITCODE -ne 0) { throw "Commit fetch failed for $($repository.id) with exit code $LASTEXITCODE." }
+        $clone = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', 'clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) 120
+        Write-CommandOutput $clone
+        if ($clone.ExitCode -ne 0) {
+            throw "Clone failed for $($repository.id) with exit code $($clone.ExitCode)."
         }
 
-        & git -C $target checkout --detach $repository.commitSha 2>&1 | Write-Output
-        if ($LASTEXITCODE -ne 0) { throw "Commit checkout failed for $($repository.id) with exit code $LASTEXITCODE." }
+        $commitCheck = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
+        if ($commitCheck.ExitCode -ne 0) {
+            $fetch = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'fetch', '--depth', '1', 'origin', $repository.commitSha) 120
+            Write-CommandOutput $fetch
+            if ($fetch.ExitCode -ne 0) { throw "Commit fetch failed for $($repository.id) with exit code $($fetch.ExitCode)." }
+        }
 
-        $actualSha = (& git -C $target rev-parse HEAD).Trim()
+        $checkout = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'checkout', '--detach', $repository.commitSha) 60
+        Write-CommandOutput $checkout
+        if ($checkout.ExitCode -ne 0) { throw "Commit checkout failed for $($repository.id) with exit code $($checkout.ExitCode)." }
+
+        $actualSha = (Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
         if ($actualSha -ne $repository.commitSha) {
             throw "Commit mismatch for $($repository.id): expected $($repository.commitSha), got $actualSha."
         }
 
-        $status = ((& git -C $target status --porcelain) -join "`n").Trim()
+        $status = (Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
         if ($status) { throw "Fresh clone is not clean for $($repository.id): $status" }
 
         $labelPath = Join-Path $labelsRoot ($repository.id + '.json')
         $label = Get-Content -Raw -LiteralPath $labelPath | ConvertFrom-Json
         $solutionPath = [IO.Path]::GetFullPath((Join-Path $target $label.solution))
+        $selectedProjectDirectory = Split-Path -Parent $label.solution
+        $selectedProjectDirectory = $selectedProjectDirectory.Replace('\', '/')
+        $templateFiles = Get-ChildItem -LiteralPath $target -Recurse -File -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^(\.env|env)(\.(example|template|sample|dist))?$' }
+        foreach ($templateFile in $templateFiles) {
+            $relativeTemplatePath = [IO.Path]::GetRelativePath($target, $templateFile.FullName).Replace('\', '/')
+            $templateDirectory = (Split-Path -Parent $relativeTemplatePath).Replace('\', '/')
+            $belongsToSelectedApplication =
+                $templateDirectory.Equals($selectedProjectDirectory, [StringComparison]::OrdinalIgnoreCase) -or
+                $templateDirectory.StartsWith($selectedProjectDirectory + '/', [StringComparison]::OrdinalIgnoreCase)
+            $environmentTemplateEvidence.Add([ordered]@{
+                repositoryId = $repository.id
+                path = $relativeTemplatePath
+                kind = if ($templateFile.Name -ieq '.env.example') { '.env.example' } elseif ($templateFile.Name -ieq '.env') { 'actual-env-excluded' } else { 'explicit-template-equivalent' }
+                belongsToSelectedApplicationDeclarationPolicy = $belongsToSelectedApplication
+            })
+        }
         if (-not $SkipRestore) {
-            Write-Output "Restoring $($repository.id) project assets"
-            & dotnet restore $solutionPath --ignore-failed-sources --nologo --verbosity quiet 2>&1 | Write-Output
-            if ($LASTEXITCODE -ne 0) { throw "Restore failed for $($repository.id) with exit code $LASTEXITCODE." }
+            Write-Output "Restoring $($repository.id) project assets (timeout ${restoreTimeoutSeconds}s)"
+            try {
+                $restore = Invoke-BoundedCommand 'dotnet' @('restore', $solutionPath, '--ignore-failed-sources', '--disable-parallel', '-m:1', '--nologo', '--verbosity', 'quiet') $restoreTimeoutSeconds -WorkingDirectory (Split-Path -Parent $solutionPath)
+                Write-CommandOutput $restore
+                if ($restore.ExitCode -ne 0) {
+                    $preflightFailures[$repository.id] = "Restore exited $($restore.ExitCode): $(Compact-Error ($restore.StandardError + ' ' + $restore.StandardOutput))"
+                }
+            }
+            catch {
+                $preflightFailures[$repository.id] = (Compact-Error $_.Exception.Message)
+            }
         }
     }
 
+    if ($preflightFailures.Count -eq 0) {
+        '{}' | Set-Content -LiteralPath $preflightPath -Encoding utf8
+    }
+    else {
+        $preflightFailures | ConvertTo-Json | Set-Content -LiteralPath $preflightPath -Encoding utf8
+    }
+    $envExampleRepositories = @($environmentTemplateEvidence |
+        Where-Object { $_.kind -eq '.env.example' } |
+        ForEach-Object { $_.repositoryId } |
+        Sort-Object -Unique)
+    $envEvidence = [ordered]@{
+        version = 1
+        method = 'Enumerate repository-wide file names only at each pinned commit; do not read .env or template contents. Classify selected application membership by the directory of the labeled project.'
+        repositoryCount = @($index.repositories).Count
+        envExampleRepositoryCount = $envExampleRepositories.Count
+        templateFileCount = $environmentTemplateEvidence.Count
+        files = @($environmentTemplateEvidence | Sort-Object repositoryId, path)
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $envEvidenceOutput) | Out-Null
+    $envEvidence | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $envEvidenceOutput -Encoding utf8
+    Write-Output "Environment template files found: $($environmentTemplateEvidence.Count); repositories with .env.example: $($envEvidence.envExampleRepositoryCount)/$($envEvidence.repositoryCount)"
+    $probeArguments = @(
+        'run', '--project', $probeProject, '-c', 'Release', '--no-build', '--',
+        '--corpus-index', $indexPath,
+        '--labels-root', $labelsRoot,
+        '--clones-root', $clonesRoot,
+        '--preflight-failures', $preflightPath,
+        '--output', $output
+    )
     $probeClock = [Diagnostics.Stopwatch]::StartNew()
-    $raw = & dotnet run --project $probeProject -c Release --no-build -- `
-        --corpus-index $indexPath `
-        --labels-root $labelsRoot `
-        --clones-root $clonesRoot `
-        --output $output 2>&1
-    $probeExit = $LASTEXITCODE
+    $probe = Invoke-BoundedCommand 'dotnet' $probeArguments $commandTimeoutSeconds
     $probeClock.Stop()
-    $raw | Write-Output
+    Write-CommandOutput $probe
     Write-Output ("Restore skipped: {0}" -f [bool]$SkipRestore)
     Write-Output ("Metric command duration: {0} ms" -f $probeClock.ElapsedMilliseconds)
-    if ($probeExit -ne 0) { exit $probeExit }
+    if ($probe.ExitCode -ne 0) { $probeExitCode = $probe.ExitCode }
 }
 finally {
     $clock.Stop()
@@ -81,3 +225,4 @@ finally {
     Write-Output ("Total corpus command duration: {0} ms" -f $clock.ElapsedMilliseconds)
     Write-Output ("Scratch clones present after cleanup: {0}" -f (Test-Path -LiteralPath $clonesRoot))
 }
+if ($probeExitCode -ne 0) { exit $probeExitCode }
