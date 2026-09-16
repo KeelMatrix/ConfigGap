@@ -296,11 +296,42 @@ internal sealed class SemanticProbe
             string.Join(" | ", workspaceDiagnostics.Take(5)));
     }
 
-    private static bool IsKnownBenignWorkspaceDiagnostic(string message) =>
-        (message.Contains("A FrameworkReference for 'Microsoft.AspNetCore.App' was included in the project", StringComparison.Ordinal) &&
-            message.Contains("implicitly referenced by the .NET SDK", StringComparison.Ordinal)) ||
-        (message.Contains("The IncludeOpenAPIAnalyzers property and its associated MVC API analyzers are deprecated", StringComparison.Ordinal) &&
-            message.Contains("will be removed in a future release", StringComparison.Ordinal));
+    private static bool IsKnownBenignWorkspaceDiagnostic(string message)
+    {
+        if ((message.Contains("A FrameworkReference for 'Microsoft.AspNetCore.App' was included in the project", StringComparison.Ordinal) &&
+                message.Contains("implicitly referenced by the .NET SDK", StringComparison.Ordinal)) ||
+            (message.Contains("The IncludeOpenAPIAnalyzers property and its associated MVC API analyzers are deprecated", StringComparison.Ordinal) &&
+                message.Contains("will be removed in a future release", StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        // MSBuildWorkspace can surface advisory SDK/NuGet diagnostics as
+        // failures even though it has produced a usable project compilation.
+        // Ignore only messages whose wording identifies an advisory package or
+        // support-lifecycle notice; unresolved references and load errors still
+        // fail closed below.
+        var normalized = message.ToLowerInvariant();
+        var packageVulnerabilityNotice = normalized.Contains("vulnerab", StringComparison.Ordinal) &&
+            (normalized.Contains("package", StringComparison.Ordinal) ||
+             normalized.Contains("nu190", StringComparison.Ordinal) ||
+             normalized.Contains("nuget", StringComparison.Ordinal));
+        var frameworkLifecycleNotice =
+            (normalized.Contains("out of support", StringComparison.Ordinal) ||
+             normalized.Contains("end of life", StringComparison.Ordinal) ||
+             normalized.Contains("end-of-life", StringComparison.Ordinal) ||
+             normalized.Contains("eol", StringComparison.Ordinal) ||
+             normalized.Contains("netsdk1138", StringComparison.Ordinal)) &&
+            (normalized.Contains("framework", StringComparison.Ordinal) ||
+             normalized.Contains("target framework", StringComparison.Ordinal) ||
+             normalized.Contains("targeting", StringComparison.Ordinal));
+        var toolingTargetFrameworkNotice =
+            normalized.Contains("doesn't support net", StringComparison.Ordinal) &&
+            normalized.Contains("has not been tested with it", StringComparison.Ordinal) &&
+            normalized.Contains("suppresstfmsupportbuildwarnings", StringComparison.Ordinal);
+
+        return packageVulnerabilityNotice || frameworkLifecycleNotice || toolingTargetFrameworkNotice;
+    }
 
     private static string CreateSingleProjectSolution(string projectFileName)
     {

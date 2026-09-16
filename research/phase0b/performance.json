@@ -1,37 +1,54 @@
 {
   "version": 1,
-  "method": "SyntheticSolutionGenerator copied the FixtureConsumer and FixtureSupport source corpus, wrote a minimal net8.0 Directory.Build.props, generated 50 deterministic FixtureConsumer projects with project references, restored ConfigGap.Synthetic.sln, and ran the guarded analyzer twice on the unchanged generated tree. The analyzer required exactly 1251 observations and failed on zero or unexpected counts.",
-  "primary": {
-    "observationCount": 1251,
-    "declaredSurfaceCount": 150,
-    "durationMilliseconds": 16905,
-    "peakWorkingSetBytes": 215400448
-  },
-  "repeat": {
-    "observationCount": 1251,
-    "declaredSurfaceCount": 150,
-    "durationMilliseconds": 16401,
-    "peakWorkingSetBytes": 209768448
-  },
+  "method": "Generate one clean deterministic 50-project solution, restore it once, then run the unchanged analyzer at least three times with an exact observation-count guard on every run.",
+  "protocol": "Wall-clock bound is the greater of the observed maximum and mean plus two sample standard deviations, rounded up to the next 100 ms. Working-set bound is the observed maximum plus a 10% measurement margin, rounded up to the next MiB. These are measured regression bounds for this generated input and machine, not portable SLAs.",
+  "projectCount": 50,
+  "expectedObservationCount": 1251,
+  "runs": [
+    {
+      "run": 1,
+      "observationCount": 1251,
+      "declaredSurfaceCount": 150,
+      "durationMilliseconds": 18021,
+      "peakWorkingSetBytes": 209518592
+    },
+    {
+      "run": 2,
+      "observationCount": 1251,
+      "declaredSurfaceCount": 150,
+      "durationMilliseconds": 14498,
+      "peakWorkingSetBytes": 211910656
+    },
+    {
+      "run": 3,
+      "observationCount": 1251,
+      "declaredSurfaceCount": 150,
+      "durationMilliseconds": 18141,
+      "peakWorkingSetBytes": 209588224
+    }
+  ],
   "variance": {
-    "wallClockMeanMilliseconds": 16653,
-    "absoluteDifferenceMilliseconds": 504,
-    "differencePercentFromPrimary": 2.98,
-    "maximumWallClockMilliseconds": 16905,
-    "maximumPeakWorkingSetBytes": 215400448
+    "wallClockMeanMilliseconds": 16887,
+    "wallClockSampleVarianceMillisecondsSquared": 4282896,
+    "wallClockSampleStandardDeviationMilliseconds": 2070,
+    "maximumWallClockMilliseconds": 18141,
+    "wallClockMargin": "two sample standard deviations, with maximum-observation floor",
+    "derivedWallClockBoundMilliseconds": 21100,
+    "maximumPeakWorkingSetBytes": 211910656,
+    "peakWorkingSetMargin": "10% above observed maximum",
+    "derivedPeakWorkingSetBoundBytes": 233832448
   },
   "machine": {
-    "os": "Windows 10 Pro for Workstations 10.0.19045 (win-x64)",
-    "cpu": "LENOVO 82L5, 16 logical processors",
-    "memoryBytes": 14877257728,
+    "os": "Microsoft Windows 10.0.19045",
+    "architecture": "X64",
+    "processorCount": 16,
     "dotnetSdk": "8.0.425",
-    "msbuild": "17.11.48+02bf66295",
     "powershell": "7.6.6"
   },
   "frozenV1Baseline": {
-    "scope": "The exact generated 50-project solution, 1251-observation guard, and machine description above.",
-    "maximumWallClockMilliseconds": 16905,
-    "maximumPeakWorkingSetBytes": 215400448,
-    "interpretation": "This is a measured regression baseline, not a portable SLA. A later candidate must report against the same generation method before changing the bound."
+    "scope": "The exact generated 50-project solution, exact observation-count guard, and machine description above.",
+    "wallClockBoundMilliseconds": 21100,
+    "peakWorkingSetBoundBytes": 233832448,
+    "interpretation": "Measured regression bound only; rerun the same protocol after material analyzer changes."
   }
 }

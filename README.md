@@ -28,7 +28,7 @@ Supported key resolution is deliberately bounded to string literals, `const` val
 
 The workspace path is registered with `Microsoft.Build.Locator`, and fixture projects are opened with `Microsoft.CodeAnalysis.Workspaces.MSBuild` so project references and compilation references are resolved by MSBuild rather than by regular-expression scanning. The Options fixture uses the framework's `BindConfiguration` API rather than a local substitute.
 
-The pinned real-repository evaluation is reproducible from a clean scratch directory. It restores every selected project before evaluation, records per-repository restore/load failures, bounds restore at 30 seconds and analysis at 120 seconds per repository, and exits non-zero for any load failure:
+The pinned real-repository evaluation is reproducible from a clean scratch directory. It clones and restores every selected project before evaluation, records per-repository clone/restore/load failures, bounds clone and restore at 600 seconds and analysis at 120 seconds per repository, and bounds the overall run at 3,600 seconds. All scratch clones are removed in `finally`, and the command exits non-zero for any load failure:
 
 ```powershell
 $scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
@@ -39,22 +39,17 @@ pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 `
   -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
 ```
 
-On Windows, the script verifies OS long-path support and uses `git -c core.longpaths=true` for scratch clones. It removes all clones after evaluation. The report includes supported-domain recall, all-labeled-static-key recall, blocking precision, dynamic-blocking count, status for every repository, and load-failure count.
+On Windows, the script reads the effective Git `core.longpaths` setting without injecting a value, combines it with the OS setting and the actual resolved scratch-root length, and uses a documented short-root fallback when either long-path prerequisite is unavailable. It fails fast with an actionable `CONFIGGAP_LONG_PATH_PREREQUISITE` diagnostic if neither path is valid. The report includes supported-domain recall, all-labeled-static-key recall, the controlled precision protocol, dynamic-blocking count, status for every repository, and load-failure count.
 
-The performance protocol uses a clean generated solution. Restore it before both measurements and pass the expected deterministic observation count:
+The blocking precision protocol is predeclared and non-vacuous. For each distinct hand-labeled supported static application key, the evaluator synchronizes a declaration graph containing the labeled keys, removes exactly that key for one variant, and requires one blocking finding at the key's primary labeled location. A no-removal control variant must produce zero blocking findings. The precision claim requires at least 10 observed blocking predictions; below that denominator it reports `UNVERIFIED` and fails the gate. Dynamic and unresolvable accesses remain unknown and are never made blocking.
+
+The performance protocol uses a clean generated solution, restores it once, and performs at least three guarded measurements. The checked-in bound is derived from the observed maximum and the mean plus two sample standard deviations, with the named margin and rounding recorded in `research/phase0b/performance.json`:
 
 ```powershell
-$scratchRoot = Join-Path $env:TEMP 'configgap-phase0b-run'
-$synthetic = Join-Path $scratchRoot 'synthetic-50'
-New-Item -ItemType Directory -Force $scratchRoot | Out-Null
-dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
-  --generate-synthetic $synthetic --repository-root . --project-count 50
-dotnet restore (Join-Path $synthetic 'ConfigGap.Synthetic.sln') --nologo
-dotnet run --project .\tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- `
-  --analyze-only --repository-root $synthetic `
-  --solution (Join-Path $synthetic 'ConfigGap.Synthetic.sln') `
-  --expected-observations 1251 `
-  --output (Join-Path $scratchRoot 'performance-1.json')
+pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 `
+  -RepositoryRoot (Get-Location).Path `
+  -ScratchRoot (Join-Path $env:TEMP 'configgap-phase0b-benchmark') `
+  -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
 ```
 
-Run the last command a second time for the repeat measurement. Generated solution project GUIDs are unique, including the support project.
+Generated solution project GUIDs are unique, including the support project. A performance report is a measured regression bound for the exact generated input and machine, not a portable SLA.

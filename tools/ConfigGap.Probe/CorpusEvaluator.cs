@@ -6,6 +6,7 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 internal static class CorpusEvaluator
 {
+    private const int MinimumPrecisionPredictions = 10;
     private static readonly TimeSpan RepositoryTimeout = TimeSpan.FromSeconds(120);
     private static readonly HashSet<string> SupportedKinds = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -36,7 +37,8 @@ internal static class CorpusEvaluator
         var preflightFailures = LoadPreflightFailures(preflightFailuresPath);
         var report = new CorpusEvaluationReport
         {
-            RepositoryTimeoutSeconds = (int)RepositoryTimeout.TotalSeconds
+            RepositoryTimeoutSeconds = (int)RepositoryTimeout.TotalSeconds,
+            PrecisionMinimumPredictions = MinimumPrecisionPredictions
         };
 
         foreach (var repository in index.Repositories.OrderBy(item => item.Id, StringComparer.Ordinal))
@@ -89,6 +91,7 @@ internal static class CorpusEvaluator
                     solutionPath,
                     clonePath,
                     declarations,
+                    label,
                     labeledStatic,
                     allLabeledStatic,
                     labeledMissing,
@@ -100,15 +103,22 @@ internal static class CorpusEvaluator
         }
 
         report.RepositoryCount = report.Repositories.Count;
-        report.BlockingPrecision = Percentage(report.StaticKeyTruePositives, report.StaticKeyPredictions);
+        report.BlockingPrecision = PercentageOrNull(report.PrecisionProtocolTruePositives, report.PrecisionProtocolPredictions);
+        report.CorpusBlockingPrecision = PercentageOrNull(report.StaticKeyTruePositives, report.StaticKeyPredictions);
+        report.BlockingPrecisionStatus = report.PrecisionProtocolPredictions < MinimumPrecisionPredictions
+            ? "UNVERIFIED"
+            : report.PrecisionProtocolControlBlockingFindings > 0 || report.PrecisionProtocolFailedCases > 0
+                ? "FAIL"
+                : report.BlockingPrecision >= 95m ? "VERIFIED" : "FAIL";
         report.StaticKeyRecall = Percentage(report.StaticKeyRecallNumerator, report.StaticKeyRecallDenominator);
         report.AllLabeledStaticRecall = Percentage(report.AllLabeledStaticRecallNumerator, report.AllLabeledStaticRecallDenominator);
         report.DynamicAccessesNeverBlock = report.DynamicBlockingFindings == 0;
-        report.Verdict = report.LoadFailureCount > 0
-            ? "FAIL"
-            : report.BlockingPrecision >= 95m && report.StaticKeyRecall >= 90m && report.DynamicAccessesNeverBlock
+        report.Verdict = report.LoadFailureCount == 0 &&
+            report.BlockingPrecisionStatus == "VERIFIED" &&
+            report.StaticKeyRecall >= 90m &&
+            report.DynamicAccessesNeverBlock
                 ? "PASS"
-                : "NARROW";
+                : "FAIL";
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(report, CorpusJson.WriteOptions) + Environment.NewLine);
@@ -121,6 +131,7 @@ internal static class CorpusEvaluator
         string solutionPath,
         string clonePath,
         DeclarationGraph declarations,
+        CorpusLabel label,
         HashSet<string> labeledStatic,
         HashSet<string> allLabeledStatic,
         HashSet<string> labeledMissing,
@@ -145,6 +156,7 @@ internal static class CorpusEvaluator
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             var dynamicBlocking = CountDynamicBlocking(dynamicAccesses, observations, declarations);
+            var precision = EvaluatePrecisionProtocol(label, observations);
 
             return new CorpusRepositoryResult
             {
@@ -162,9 +174,16 @@ internal static class CorpusEvaluator
                 AllRecallDenominator = allLabeledStatic.Count,
                 LabeledDynamicAccesses = dynamicAccesses.Count,
                 DynamicBlockingFindings = dynamicBlocking,
+                PrecisionProtocolCases = precision.Cases,
+                PrecisionProtocolTruePositives = precision.TruePositives,
+                PrecisionProtocolPredictions = precision.Predictions,
+                PrecisionProtocolControlBlockingFindings = precision.ControlBlockingFindings,
+                PrecisionProtocolFailedCases = precision.FailedCases,
                 AnalyzerMissingKeys = analyzerMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
                 LabeledMissingKeys = labeledMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
-                FalsePositiveKeys = falsePositiveKeys
+                FalsePositiveKeys = falsePositiveKeys,
+                MissedKeys = ClassifyMissedKeys(label, analyzerStatic, clonePath),
+                PrecisionProtocolFailures = precision.Failures
             };
         }
         catch (TimeoutException)
@@ -223,13 +242,19 @@ internal static class CorpusEvaluator
             RecallDenominator = labeledStatic.Count,
             AllRecallDenominator = allLabeledStatic.Count,
             LabeledDynamicAccesses = dynamicAccesses.Count,
-            LabeledMissingKeys = labeledMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList()
+            LabeledMissingKeys = labeledMissing.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
+            MissedKeys = ClassifyMissedKeys(label: null, labeledMissing, clonePath: null, loadFailureCode: code)
         };
 
     private static void AddToReport(CorpusEvaluationReport report, CorpusRepositoryResult result)
     {
         report.StaticKeyTruePositives += result.BlockingTruePositives;
         report.StaticKeyPredictions += result.BlockingPredictions;
+        report.PrecisionProtocolCases += result.PrecisionProtocolCases;
+        report.PrecisionProtocolTruePositives += result.PrecisionProtocolTruePositives;
+        report.PrecisionProtocolPredictions += result.PrecisionProtocolPredictions;
+        report.PrecisionProtocolControlBlockingFindings += result.PrecisionProtocolControlBlockingFindings;
+        report.PrecisionProtocolFailedCases += result.PrecisionProtocolFailedCases;
         report.StaticKeyRecallNumerator += result.RecallNumerator;
         report.StaticKeyRecallDenominator += result.RecallDenominator;
         report.AllLabeledStaticRecallNumerator += result.AllRecallNumerator;
@@ -297,6 +322,9 @@ internal static class CorpusEvaluator
     private static decimal Percentage(int numerator, int denominator) =>
         denominator == 0 ? 100m : Math.Round(numerator * 100m / denominator, 2, MidpointRounding.AwayFromZero);
 
+    private static decimal? PercentageOrNull(int numerator, int denominator) =>
+        denominator == 0 ? null : Math.Round(numerator * 100m / denominator, 2, MidpointRounding.AwayFromZero);
+
     private static void PrintReport(CorpusEvaluationReport report, string outputPath, TimeSpan duration)
     {
         Console.WriteLine("ConfigGap Phase 0B corpus evaluation");
@@ -312,7 +340,17 @@ internal static class CorpusEvaluator
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Blocking precision: {report.StaticKeyTruePositives}/{report.StaticKeyPredictions} = {report.BlockingPrecision:F2}%");
+        if (report.BlockingPrecision is null)
+        {
+            Console.WriteLine($"Blocking precision: UNVERIFIED ({report.PrecisionProtocolTruePositives}/{report.PrecisionProtocolPredictions}; minimum {report.PrecisionMinimumPredictions} predictions)");
+        }
+        else
+        {
+            Console.WriteLine($"Blocking precision: {report.PrecisionProtocolTruePositives}/{report.PrecisionProtocolPredictions} = {report.BlockingPrecision:F2}% ({report.BlockingPrecisionStatus})");
+        }
+        Console.WriteLine($"Precision protocol: {report.PrecisionProtocolTruePositives}/{report.PrecisionProtocolCases} cases passed; control blocking findings: {report.PrecisionProtocolControlBlockingFindings}; failed cases: {report.PrecisionProtocolFailedCases}");
+        var corpusPrecision = report.CorpusBlockingPrecision is null ? "UNVERIFIED" : $"{report.CorpusBlockingPrecision:F2}%";
+        Console.WriteLine($"Observed corpus precision: {report.StaticKeyTruePositives}/{report.StaticKeyPredictions} = {corpusPrecision}");
         Console.WriteLine($"Supported-domain recall: {report.StaticKeyRecallNumerator}/{report.StaticKeyRecallDenominator} = {report.StaticKeyRecall:F2}%");
         Console.WriteLine($"All-labeled-static-key recall: {report.AllLabeledStaticRecallNumerator}/{report.AllLabeledStaticRecallDenominator} = {report.AllLabeledStaticRecall:F2}%");
         Console.WriteLine($"Dynamic blocking findings: {report.DynamicBlockingFindings}");
@@ -321,4 +359,156 @@ internal static class CorpusEvaluator
         Console.WriteLine($"Machine-readable report: {Path.GetFullPath(outputPath)}");
         Console.WriteLine($"Duration: {duration.TotalMilliseconds:F0} ms");
     }
+
+    private static PrecisionProtocolResult EvaluatePrecisionProtocol(
+        CorpusLabel label,
+        IReadOnlyList<ObservedAccess> observations)
+    {
+        var labeledAccesses = label.Accesses
+            .Where(access => access.SupportedStatic &&
+                access.Key is not null &&
+                string.Equals(access.Owner, "application", StringComparison.OrdinalIgnoreCase) &&
+                SupportedKinds.Contains(access.Kind))
+            .ToArray();
+        var keys = labeledAccesses
+            .Select(access => KeyNormalizer.Normalize(access.Key!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var synchronizedDeclarations = DeclarationGraph.CreateSynchronized(keys);
+        var controlFindings = GetBlockingFindings(observations, synchronizedDeclarations);
+        var failures = new List<string>();
+        var predictions = 0;
+        var truePositives = 0;
+
+        foreach (var key in keys)
+        {
+            var expectedAccess = labeledAccesses
+                .Where(access => KeyNormalizer.Normalize(access.Key!).Equals(key, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(access => access.Source, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(access => access.Line)
+                .ThenBy(access => access.Column ?? 0)
+                .First();
+            var findings = GetBlockingFindings(observations, synchronizedDeclarations.Without(key));
+            predictions += findings.Length;
+            var passed = findings.Length == 1 &&
+                findings[0].Key.Equals(key, StringComparison.OrdinalIgnoreCase) &&
+                findings[0].Source.Equals(expectedAccess.Source, StringComparison.OrdinalIgnoreCase) &&
+                findings[0].Line == expectedAccess.Line &&
+                (expectedAccess.Column is null || findings[0].Column == expectedAccess.Column.Value);
+            if (passed)
+            {
+                truePositives++;
+            }
+            else
+            {
+                var observed = findings.Length == 0
+                    ? "-"
+                    : string.Join(", ", findings.Select(finding => $"{finding.Key}@{finding.Source}:{finding.Line}"));
+                failures.Add($"{key} expected one finding at {expectedAccess.Source}:{expectedAccess.Line}, observed {findings.Length} ({observed})");
+            }
+        }
+
+        if (controlFindings.Length > 0)
+        {
+            failures.Add($"control variant observed {controlFindings.Length} blocking finding(s): {string.Join(", ", controlFindings.Select(finding => finding.Key).OrderBy(key => key, StringComparer.OrdinalIgnoreCase))}");
+        }
+
+        return new PrecisionProtocolResult(
+            keys.Length,
+            predictions,
+            truePositives,
+            controlFindings.Length,
+            keys.Length - truePositives,
+            failures);
+    }
+
+    private static ProtocolFinding[] GetBlockingFindings(
+        IReadOnlyList<ObservedAccess> observations,
+        DeclarationGraph declarations) =>
+        observations
+            .Where(observation => observation.Key is not null &&
+                SupportedKinds.Contains(observation.Kind) &&
+                !declarations.Contains(observation.Key) &&
+                !FrameworkOwnedKeys.IsOwned(observation.Key))
+            .GroupBy(observation => KeyNormalizer.Normalize(observation.Key!), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderBy(observation => observation.Source, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(observation => observation.Line)
+                .ThenBy(observation => observation.Column)
+                .Select(observation => new ProtocolFinding(
+                    group.Key,
+                    observation.Source,
+                    observation.Line,
+                    observation.Column))
+                .First())
+            .OrderBy(finding => finding.Key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static List<CorpusMissedKey> ClassifyMissedKeys(
+        CorpusLabel? label,
+        HashSet<string> analyzerStaticKeys,
+        string? clonePath,
+        string? loadFailureCode = null)
+    {
+        if (label is null)
+        {
+            return analyzerStaticKeys
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .Select(key => new CorpusMissedKey
+                {
+                    Key = key,
+                    Cause = "workspace/load failure",
+                    Detail = loadFailureCode ?? "The selected project was not analyzed."
+                })
+                .ToList();
+        }
+
+        var misses = new List<CorpusMissedKey>();
+        foreach (var access in label.Accesses.Where(access => access.Key is not null))
+        {
+            var key = KeyNormalizer.Normalize(access.Key!);
+            if (analyzerStaticKeys.Contains(key))
+            {
+                continue;
+            }
+
+            var cause = !access.SupportedStatic || !SupportedKinds.Contains(access.Kind)
+                ? "genuinely unsupported pattern"
+                : clonePath is not null && !File.Exists(Path.Combine(clonePath, access.Source.Replace('/', Path.DirectorySeparatorChar)))
+                    ? "label error"
+                    : "semantic analyzer miss";
+            misses.Add(new CorpusMissedKey
+            {
+                Key = key,
+                Source = access.Source,
+                Line = access.Line,
+                Cause = cause,
+                Detail = access.Note ?? $"Labeled {access.Kind} access was not observed by the analyzer."
+            });
+        }
+
+        foreach (var access in label.Accesses.Where(access => !access.SupportedStatic && access.Key is null))
+        {
+            misses.Add(new CorpusMissedKey
+            {
+                Source = access.Source,
+                Line = access.Line,
+                Cause = "dynamic/unknown",
+                Detail = access.Note ?? "The access is intentionally outside static resolution."
+            });
+        }
+
+        return misses;
+    }
+
+    private sealed record PrecisionProtocolResult(
+        int Cases,
+        int Predictions,
+        int TruePositives,
+        int ControlBlockingFindings,
+        int FailedCases,
+        List<string> Failures);
+
+    private sealed record ProtocolFinding(string Key, string Source, int Line, int Column);
 }

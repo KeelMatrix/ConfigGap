@@ -6,14 +6,32 @@ internal sealed class DeclarationGraph
 {
     private readonly Dictionary<string, string> displayKeys = new(StringComparer.OrdinalIgnoreCase);
 
-    private DeclarationGraph(IReadOnlyList<string> surfaces)
+    private DeclarationGraph(IReadOnlyList<string> surfaces, IEnumerable<string>? keys = null)
     {
         Surfaces = surfaces;
+        if (keys is not null)
+        {
+            foreach (var key in keys)
+            {
+                Add(key);
+            }
+        }
     }
 
     public IReadOnlyList<string> Surfaces { get; }
 
     public bool Contains(string key) => displayKeys.ContainsKey(KeyNormalizer.Normalize(key));
+
+    public static DeclarationGraph CreateSynchronized(IEnumerable<string> keys) =>
+        new(["<precision-protocol-synchronized-surface>"], keys);
+
+    public DeclarationGraph Without(string key)
+    {
+        var normalizedKey = KeyNormalizer.Normalize(key);
+        return new DeclarationGraph(
+            Surfaces,
+            displayKeys.Values.Where(existing => !existing.Equals(normalizedKey, StringComparison.OrdinalIgnoreCase)));
+    }
 
     public static DeclarationGraph Load(string repositoryRoot)
     {

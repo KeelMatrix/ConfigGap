@@ -4,7 +4,10 @@ param(
     [string]$ScratchRoot = (Join-Path $env:TEMP "configgap-phase0b-$PID"),
     [string]$OutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'research/phase0b/metrics.json'),
     [string]$EnvEvidencePath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'research/phase0b/env-prevalence.json'),
-    [switch]$SkipRestore
+    [switch]$SkipRestore,
+    [int]$RestoreTimeoutSeconds = 600,
+    [int]$CommandTimeoutSeconds = 300,
+    [int]$OverallTimeoutSeconds = 3600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,8 +20,12 @@ $clonesRoot = Join-Path $scratch 'corpus-clones'
 $preflightPath = Join-Path $scratch 'preflight-failures.json'
 $output = [IO.Path]::GetFullPath($OutputPath)
 $envEvidenceOutput = [IO.Path]::GetFullPath($EnvEvidencePath)
-$restoreTimeoutSeconds = 30
-$commandTimeoutSeconds = 300
+$shortScratchRootLimit = 80
+$cloneTimeoutSeconds = 600
+
+if ($RestoreTimeoutSeconds -lt 1 -or $CommandTimeoutSeconds -lt 1 -or $OverallTimeoutSeconds -lt 1) {
+    throw 'CONFIGGAP_POLICY_INVALID: timeout values must be positive.'
+}
 
 if (-not (Test-Path -LiteralPath $indexPath)) { throw "Corpus index not found: $indexPath" }
 if (-not (Test-Path -LiteralPath $labelsRoot)) { throw "Corpus labels not found: $labelsRoot" }
@@ -26,9 +33,27 @@ if (-not (Test-Path -LiteralPath $probeProject)) { throw "Probe project not foun
 
 if ($IsWindows) {
     $longPathsEnabled = (Get-ItemPropertyValue 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -ErrorAction SilentlyContinue) -eq 1
-    $gitLongPathsEnabled = ((& git -c core.longpaths=true config --get core.longpaths 2>$null) -join '').Trim() -eq 'true'
-    if ((-not $longPathsEnabled -or -not $gitLongPathsEnabled) -and $scratch.Length -gt 80) {
-        throw 'CONFIGGAP_LONG_PATH_PREREQUISITE: Windows long paths are unavailable and the scratch root is not short enough. Enable LongPathsEnabled and Git core.longpaths, or provide a validated scratch root whose full path is at most 80 characters.'
+    $gitLongPathsSetting = ((& git config --get core.longpaths 2>$null) -join "`n")
+    if ($null -eq $gitLongPathsSetting) {
+        $gitLongPathsSetting = ''
+    }
+    $gitLongPathsValues = @($gitLongPathsSetting -split '[\r\n]+' | Where-Object { $_.Trim().Length -gt 0 })
+    $effectiveGitLongPathsValue = if ($gitLongPathsValues.Count -eq 0) { '' } else { $gitLongPathsValues[-1].Trim() }
+    $gitLongPathsEnabled = $effectiveGitLongPathsValue -eq 'true'
+    $usesShortRootFallback = -not $longPathsEnabled -or -not $gitLongPathsEnabled
+    Write-Output ("Windows long-path preflight: OS={0}; Git effective core.longpaths={1}; scratchRootLength={2}; fallbackLimit={3}; mode={4}" -f `
+        $longPathsEnabled, $(if ($effectiveGitLongPathsValue.Length -eq 0) { '<unset>' } else { $effectiveGitLongPathsValue }), $scratch.Length, $shortScratchRootLimit, `
+        $(if ($usesShortRootFallback) { 'short-root-fallback' } else { 'native-long-paths' }))
+    if ($usesShortRootFallback -and $scratch.Length -gt $shortScratchRootLimit) {
+        throw 'CONFIGGAP_LONG_PATH_PREREQUISITE: Windows long paths are unavailable and the effective scratch root is too long. Enable Windows LongPathsEnabled and Git core.longpaths, or provide a validated scratch root whose full path is at most 80 characters.'
+    }
+}
+
+$deadline = [DateTime]::UtcNow.AddSeconds($OverallTimeoutSeconds)
+
+function Assert-RunWithinDeadline {
+    if ([DateTime]::UtcNow -ge $deadline) {
+        throw "CONFIGGAP_CORPUS_TIMEOUT: overall corpus run exceeded the $OverallTimeoutSeconds-second limit. Use a fresh scratch root and review restore/load duration."
     }
 }
 
@@ -50,6 +75,13 @@ function Invoke-BoundedCommand {
         [void]$startInfo.ArgumentList.Add($argument)
     }
 
+    Assert-RunWithinDeadline
+    $remainingMilliseconds = [int][Math]::Floor(($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+    if ($remainingMilliseconds -lt 1) {
+        throw "CONFIGGAP_CORPUS_TIMEOUT: overall corpus run exceeded the $OverallTimeoutSeconds-second limit."
+    }
+    $waitMilliseconds = [Math]::Min($TimeoutSeconds * 1000, $remainingMilliseconds)
+
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
     try {
@@ -59,8 +91,11 @@ function Invoke-BoundedCommand {
 
         $standardOutput = $process.StandardOutput.ReadToEndAsync()
         $standardError = $process.StandardError.ReadToEndAsync()
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        if (-not $process.WaitForExit($waitMilliseconds)) {
             try { $process.Kill($true) } catch { }
+            if ($waitMilliseconds -lt $TimeoutSeconds * 1000) {
+                throw "CONFIGGAP_CORPUS_TIMEOUT: overall corpus run exceeded the $OverallTimeoutSeconds-second limit while running $FilePath."
+            }
             throw "CONFIGGAP_COMMAND_TIMEOUT: $FilePath exceeded the $TimeoutSeconds-second limit."
         }
 
@@ -110,6 +145,7 @@ $clock = [Diagnostics.Stopwatch]::StartNew()
 $probeExitCode = 0
 try {
     foreach ($repository in $index.repositories) {
+        Assert-RunWithinDeadline
         $target = Join-Path $clonesRoot $repository.id
         if (Test-Path -LiteralPath $target) {
             $resolvedTarget = [IO.Path]::GetFullPath($target)
@@ -120,29 +156,29 @@ try {
         }
 
         Write-Output "Cloning $($repository.id) at $($repository.commitSha)"
-        $clone = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', 'clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) 120
+        $clone = Invoke-BoundedCommand 'git' @('clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
         Write-CommandOutput $clone
         if ($clone.ExitCode -ne 0) {
             throw "Clone failed for $($repository.id) with exit code $($clone.ExitCode)."
         }
 
-        $commitCheck = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
+        $commitCheck = Invoke-BoundedCommand 'git' @('-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
         if ($commitCheck.ExitCode -ne 0) {
-            $fetch = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'fetch', '--depth', '1', 'origin', $repository.commitSha) 120
+            $fetch = Invoke-BoundedCommand 'git' @('-C', $target, 'fetch', '--depth', '1', 'origin', $repository.commitSha) 120
             Write-CommandOutput $fetch
             if ($fetch.ExitCode -ne 0) { throw "Commit fetch failed for $($repository.id) with exit code $($fetch.ExitCode)." }
         }
 
-        $checkout = Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'checkout', '--detach', $repository.commitSha) 60
+        $checkout = Invoke-BoundedCommand 'git' @('-C', $target, 'checkout', '--detach', $repository.commitSha) 60
         Write-CommandOutput $checkout
         if ($checkout.ExitCode -ne 0) { throw "Commit checkout failed for $($repository.id) with exit code $($checkout.ExitCode)." }
 
-        $actualSha = (Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
+        $actualSha = (Invoke-BoundedCommand 'git' @('-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
         if ($actualSha -ne $repository.commitSha) {
             throw "Commit mismatch for $($repository.id): expected $($repository.commitSha), got $actualSha."
         }
 
-        $status = (Invoke-BoundedCommand 'git' @('-c', 'core.longpaths=true', '-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
+        $status = (Invoke-BoundedCommand 'git' @('-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
         if ($status) { throw "Fresh clone is not clean for $($repository.id): $status" }
 
         $labelPath = Join-Path $labelsRoot ($repository.id + '.json')
@@ -166,15 +202,18 @@ try {
             })
         }
         if (-not $SkipRestore) {
-            Write-Output "Restoring $($repository.id) project assets (timeout ${restoreTimeoutSeconds}s)"
+            Write-Output "Restoring $($repository.id) project assets (timeout ${RestoreTimeoutSeconds}s; overall run bound ${OverallTimeoutSeconds}s)"
             try {
-                $restore = Invoke-BoundedCommand 'dotnet' @('restore', $solutionPath, '--ignore-failed-sources', '--disable-parallel', '-m:1', '--nologo', '--verbosity', 'quiet') $restoreTimeoutSeconds -WorkingDirectory (Split-Path -Parent $solutionPath)
+                $restore = Invoke-BoundedCommand 'dotnet' @('restore', $solutionPath, '--ignore-failed-sources', '--disable-parallel', '-m:1', '--nologo', '--verbosity', 'quiet') $RestoreTimeoutSeconds -WorkingDirectory (Split-Path -Parent $solutionPath)
                 Write-CommandOutput $restore
                 if ($restore.ExitCode -ne 0) {
                     $preflightFailures[$repository.id] = "Restore exited $($restore.ExitCode): $(Compact-Error ($restore.StandardError + ' ' + $restore.StandardOutput))"
                 }
             }
             catch {
+                if ($_.Exception.Message.StartsWith('CONFIGGAP_CORPUS_TIMEOUT:', [StringComparison]::Ordinal)) {
+                    throw
+                }
                 $preflightFailures[$repository.id] = (Compact-Error $_.Exception.Message)
             }
         }
@@ -210,7 +249,7 @@ try {
         '--output', $output
     )
     $probeClock = [Diagnostics.Stopwatch]::StartNew()
-    $probe = Invoke-BoundedCommand 'dotnet' $probeArguments $commandTimeoutSeconds
+    $probe = Invoke-BoundedCommand 'dotnet' $probeArguments $CommandTimeoutSeconds
     $probeClock.Stop()
     Write-CommandOutput $probe
     Write-Output ("Restore skipped: {0}" -f [bool]$SkipRestore)

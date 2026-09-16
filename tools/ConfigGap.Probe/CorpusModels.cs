@@ -76,7 +76,17 @@ internal sealed class CorpusEvaluationReport
     public int DynamicBlockingFindings { get; set; }
     public int LoadFailureCount { get; set; }
     public bool DynamicAccessesNeverBlock { get; set; }
-    public decimal BlockingPrecision { get; set; }
+    public decimal? BlockingPrecision { get; set; }
+    public decimal? CorpusBlockingPrecision { get; set; }
+    public string BlockingPrecisionStatus { get; set; } = "UNVERIFIED";
+    public int PrecisionMinimumPredictions { get; set; } = 10;
+    public string PrecisionProtocol { get; set; } =
+        "For every distinct hand-labeled supported static application key, synchronize a declaration graph containing the labeled keys, remove exactly that key for one variant, require one blocking finding at its primary labeled location, and require zero blocking findings in the no-removal control variant.";
+    public int PrecisionProtocolCases { get; set; }
+    public int PrecisionProtocolTruePositives { get; set; }
+    public int PrecisionProtocolPredictions { get; set; }
+    public int PrecisionProtocolControlBlockingFindings { get; set; }
+    public int PrecisionProtocolFailedCases { get; set; }
     public decimal StaticKeyRecall { get; set; }
     public decimal AllLabeledStaticRecall { get; set; }
     public string Verdict { get; set; } = "FAIL";
@@ -103,9 +113,25 @@ internal sealed class CorpusRepositoryResult
     public int AllRecallDenominator { get; set; }
     public int LabeledDynamicAccesses { get; set; }
     public int DynamicBlockingFindings { get; set; }
+    public int PrecisionProtocolCases { get; set; }
+    public int PrecisionProtocolTruePositives { get; set; }
+    public int PrecisionProtocolPredictions { get; set; }
+    public int PrecisionProtocolControlBlockingFindings { get; set; }
+    public int PrecisionProtocolFailedCases { get; set; }
     public List<string> AnalyzerMissingKeys { get; set; } = [];
     public List<string> LabeledMissingKeys { get; set; } = [];
     public List<string> FalsePositiveKeys { get; set; } = [];
+    public List<CorpusMissedKey> MissedKeys { get; set; } = [];
+    public List<string> PrecisionProtocolFailures { get; set; } = [];
+}
+
+internal sealed class CorpusMissedKey
+{
+    public string? Key { get; set; }
+    public string Source { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public string Cause { get; set; } = string.Empty;
+    public string Detail { get; set; } = string.Empty;
 }
 
 internal static class CorpusJson
