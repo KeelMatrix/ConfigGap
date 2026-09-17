@@ -27,8 +27,8 @@ Final clean corpus results:
   literal and const arguments. The shared helper access is not used as a
   per-key primary location.
 - fullstackhero-webapi labels now map the pinned source call sites exactly:
-  CachingOptions:Redis at Program.cs:38, JwtOptions:SigningKey at Program.cs:39,
-  and DatabaseOptions:ConnectionString at Program.cs:40.
+  DatabaseOptions:ConnectionString at Program.cs:38, CachingOptions:Redis at Program.cs:39,
+  and JwtOptions:SigningKey at Program.cs:40.
 - Windows preflight validates clone, pinned checkout, and clean status for every
   real corpus repository before restore or analysis. When `LongPathsEnabled=True`,
   the script owns Git long-path behavior with `-c core.longpaths=true` for its
