@@ -36,13 +36,13 @@ if ($fixtureManifest.version -ne 1 -or @($fixtureManifest.patterns).Count -lt 1)
 $projectFixturePrefix = 'fixtures/FixtureConsumer/Patterns/'
 $projectFixturePatterns = @($fixtureManifest.patterns | Where-Object { $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
 $sharedFixturePatterns = @($fixtureManifest.patterns | Where-Object { -not $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
-$projectFixtureObservationCount = ($projectFixturePatterns | ForEach-Object {
+$projectFixtureObservationCount = [int](($projectFixturePatterns | ForEach-Object {
     if ($null -eq $_.expectedObservationCount) { 1 } else { [int]$_.expectedObservationCount }
-} | Measure-Object -Sum).Sum
-$sharedFixtureObservationCount = ($sharedFixturePatterns | ForEach-Object {
+} | Measure-Object -Sum).Sum)
+$sharedFixtureObservationCount = [int](($sharedFixturePatterns | ForEach-Object {
     if ($null -eq $_.expectedObservationCount) { 1 } else { [int]$_.expectedObservationCount }
-} | Measure-Object -Sum).Sum
-$expectedObservations = ($projectFixtureObservationCount * $ProjectCount) + $sharedFixtureObservationCount
+} | Measure-Object -Sum).Sum)
+$expectedObservations = [int](($projectFixtureObservationCount * $ProjectCount) + $sharedFixtureObservationCount)
 if ($expectedObservations -lt 1) {
     throw 'CONFIGGAP_PERFORMANCE_FIXTURE_MANIFEST: derived observation count must be positive.'
 }
