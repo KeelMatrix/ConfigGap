@@ -71,6 +71,15 @@ function Assert-ReportMetric {
         [Parameter(Mandatory = $true)]$MetricValue
     )
 
+    try {
+        if ([decimal]$ReportValue -eq [decimal]$MetricValue) {
+            return
+        }
+    }
+    catch {
+        # Non-numeric fields, such as the verdict, are compared as strings below.
+    }
+
     if ([string]$ReportValue -ne [string]$MetricValue) {
         throw "CONFIGGAP_EVIDENCE_METRIC_MISMATCH: $Name report='$ReportValue' metrics='$MetricValue'."
     }

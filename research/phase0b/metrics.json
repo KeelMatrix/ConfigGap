@@ -13,19 +13,19 @@
   "dynamicBlockingFindings": 0,
   "loadFailureCount": 0,
   "dynamicAccessesNeverBlock": true,
-  "blockingPrecision": 93.10,
+  "blockingPrecision": 100,
   "corpusBlockingPrecision": 100,
-  "blockingPrecisionStatus": "FAIL",
+  "blockingPrecisionStatus": "VERIFIED",
   "precisionMinimumPredictions": 10,
   "precisionProtocol": "For every distinct hand-labeled supported static application key, synchronize a declaration graph containing the labeled keys, remove exactly that key for one variant, require one blocking finding at its primary labeled location, and require zero blocking findings in the no-removal control variant.",
   "precisionProtocolCases": 29,
-  "precisionProtocolTruePositives": 27,
+  "precisionProtocolTruePositives": 29,
   "precisionProtocolPredictions": 29,
   "precisionProtocolControlBlockingFindings": 0,
-  "precisionProtocolFailedCases": 2,
+  "precisionProtocolFailedCases": 0,
   "staticKeyRecall": 100,
   "allLabeledStaticRecall": 100,
-  "verdict": "FAIL",
+  "verdict": "PASS",
   "recallDomain": "Supported static application accesses are hand-labeled supportedStatic=true, owner=application, with a non-null key and kind indexer, get-value, section, required-section, options-bind, or options-bind-configuration. Exclude dynamic/unresolvable, unsupported APIs, framework-owned keys, and provider-specific forms under section 8; membership is determined from labels, never from analyzer output.",
   "repositories": [
     {
@@ -304,18 +304,15 @@
       "labeledDynamicAccesses": 0,
       "dynamicBlockingFindings": 0,
       "precisionProtocolCases": 3,
-      "precisionProtocolTruePositives": 1,
+      "precisionProtocolTruePositives": 3,
       "precisionProtocolPredictions": 3,
       "precisionProtocolControlBlockingFindings": 0,
-      "precisionProtocolFailedCases": 2,
+      "precisionProtocolFailedCases": 0,
       "analyzerMissingKeys": [],
       "labeledMissingKeys": [],
       "falsePositiveKeys": [],
       "missedKeys": [],
-      "precisionProtocolFailures": [
-        "CachingOptions:Redis expected one finding at src/Host/FSH.Starter.Api/Program.cs:32, observed 1 (CachingOptions:Redis@src/Host/FSH.Starter.Api/Program.cs:31)",
-        "JwtOptions:SigningKey expected one finding at src/Host/FSH.Starter.Api/Program.cs:33, observed 1 (JwtOptions:SigningKey@src/Host/FSH.Starter.Api/Program.cs:31)"
-      ]
+      "precisionProtocolFailures": []
     },
     {
       "id": "oidcproxy-net",
