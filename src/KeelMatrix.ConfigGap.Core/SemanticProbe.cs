@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.MSBuild;
 
 namespace KeelMatrix.ConfigGap.Probe;
 
-internal sealed class SemanticProbe
+public sealed class SemanticProbe
 {
     public static Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
         string solutionPath,
@@ -185,7 +185,21 @@ internal sealed class SemanticProbe
                             continue;
                         }
 
-                        if (IsReceiverOfKnownConsumer(invocation, model, cancellationToken))
+                        var consumerName = GetKnownConsumerName(invocation, model, cancellationToken);
+                        if (consumerName == "Configure")
+                        {
+                            foreach (var section in ResolveConfigurationPath(invocation, model, compilation, cancellationToken))
+                            {
+                                observations.Add(CreateObservation(
+                                    repositoryRoot,
+                                    document.FilePath,
+                                    GetAccessLocation(GetKnownConsumerInvocation(invocation, model, cancellationToken) ?? invocation),
+                                    "options-bind",
+                                    new StringResolution(section.Value, section.Kind)));
+                            }
+                        }
+
+                        if (consumerName is not null)
                         {
                             continue;
                         }
@@ -223,7 +237,7 @@ internal sealed class SemanticProbe
                                 observations.Add(CreateObservation(
                                     repositoryRoot,
                                     document.FilePath,
-                                    invocation,
+                                    GetAccessLocation(invocation),
                                     "prefix",
                                     new StringResolution(section.Value, "static-section-prefix")));
                             }
@@ -247,6 +261,30 @@ internal sealed class SemanticProbe
                                     invocation,
                                     "options-bind",
                                     new StringResolution(section.Value, "static-options-section")));
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    if (methodName == "Bind" && receiver is not null &&
+                        symbol is not null &&
+                        IsOptionsBuilderType(model.GetTypeInfo(receiver, cancellationToken).Type))
+                    {
+                        foreach (var section in invocation.ArgumentList.Arguments
+                            .Select(argument => argument.Expression)
+                            .OfType<InvocationExpressionSyntax>()
+                            .Where(argument => argument.Expression is MemberAccessExpressionSyntax memberAccess &&
+                                memberAccess.Name.Identifier.Text is "GetSection" or "GetRequiredSection"))
+                        {
+                            foreach (var resolution in ResolveConfigurationPath(section, model, compilation, cancellationToken))
+                            {
+                                observations.Add(CreateObservation(
+                                    repositoryRoot,
+                                    document.FilePath,
+                                    GetAccessLocation(invocation),
+                                    "options-bind",
+                                    new StringResolution(resolution.Value, resolution.Kind)));
                             }
                         }
 
@@ -469,10 +507,20 @@ internal sealed class SemanticProbe
             originalDefinition.ContainingNamespace?.ToDisplayString() == "Microsoft.Extensions.Options";
     }
 
+    private static bool IsOptionsBuilderType(ITypeSymbol? receiverType)
+    {
+        var optionsBuilder = receiverType as INamedTypeSymbol;
+        var originalDefinition = optionsBuilder?.OriginalDefinition;
+        return originalDefinition is not null &&
+            originalDefinition.Name == "OptionsBuilder" &&
+            originalDefinition.Arity == 1 &&
+            originalDefinition.ContainingNamespace?.ToDisplayString() == "Microsoft.Extensions.Options";
+    }
+
     private static ExpressionSyntax? GetReceiver(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Expression : null;
 
-    private static IReadOnlyList<StringResolution> ResolveConfigurationPath(
+    private static StringResolution[] ResolveConfigurationPath(
         ExpressionSyntax expression,
         SemanticModel model,
         Compilation compilation,
@@ -504,19 +552,37 @@ internal sealed class SemanticProbe
             .ToArray();
     }
 
-    private static bool IsReceiverOfKnownConsumer(
+    private static string? GetKnownConsumerName(
         InvocationExpressionSyntax invocation,
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        if (invocation.Parent is not MemberAccessExpressionSyntax memberAccess || memberAccess.Expression != invocation ||
-            memberAccess.Parent is not InvocationExpressionSyntax outer)
+        var outer = GetKnownConsumerInvocation(invocation, model, cancellationToken);
+        if (outer is null)
         {
-            return false;
+            return null;
         }
 
         var symbol = model.GetSymbolInfo(outer, cancellationToken).Symbol as IMethodSymbol;
-        return symbol?.Name is "Bind" or "GetChildren";
+        var methodName = symbol?.Name ??
+            (outer.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text;
+        return methodName is "Bind" or "Configure" or "GetChildren" ? methodName : null;
+    }
+
+    private static InvocationExpressionSyntax? GetKnownConsumerInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        var outer = invocation.Parent switch
+        {
+            MemberAccessExpressionSyntax memberAccess when memberAccess.Expression == invocation =>
+                memberAccess.Parent as InvocationExpressionSyntax,
+            ArgumentSyntax argument when argument.Parent?.Parent is InvocationExpressionSyntax outerInvocation =>
+                outerInvocation,
+            _ => null
+        };
+        return outer;
     }
 
     private static bool IsNestedKeyExpression(

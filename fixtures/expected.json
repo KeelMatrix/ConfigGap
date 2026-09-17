@@ -5,6 +5,7 @@
     { "id": "bind-configuration", "source": "fixtures/FixtureConsumer/Patterns/BindConfiguration.cs", "kind": "options-bind-configuration", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "concatenated-key", "source": "fixtures/FixtureConsumer/Patterns/ConcatenatedKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:ConcatKey"] },
     { "id": "const-key", "source": "fixtures/FixtureConsumer/Patterns/ConstKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:ConstKey"] },
+    { "id": "configure-options", "source": "fixtures/FixtureConsumer/Patterns/ConfigureOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Configure"] },
     { "id": "custom-extension-wrapper", "source": "fixtures/FixtureSupport/CustomConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Custom:WrappedKey"] },
     { "id": "dynamic-computed-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicComputedKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-configuration-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicConfigurationKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },

@@ -4,6 +4,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigGap.Probe", "tools\ConfigGap.Probe\ConfigGap.Probe.csproj", "{0F0E3C41-1A5C-4A3C-9B9D-5F0C10D93801}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeelMatrix.ConfigGap.Core", "src\KeelMatrix.ConfigGap.Core\KeelMatrix.ConfigGap.Core.csproj", "{7B8A4D2F-2B31-4C1C-BD0A-10F1B7C7B9D2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeelMatrix.ConfigGap.Core.Tests", "tests\KeelMatrix.ConfigGap.Core.Tests\KeelMatrix.ConfigGap.Core.Tests.csproj", "{A6F8E7D1-4B72-4A2E-9C31-5E8B1D2F7A40}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FixtureConsumer", "fixtures\FixtureConsumer\FixtureConsumer.csproj", "{F0E8CE95-B912-4C2F-B22B-6D0B174B1302}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FixtureSupport", "fixtures\FixtureSupport\FixtureSupport.csproj", "{4DC7DCA7-3D17-42EF-BB3D-0D8A53F3FA04}"
@@ -18,6 +22,14 @@ Global
 		{0F0E3C41-1A5C-4A3C-9B9D-5F0C10D93801}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0F0E3C41-1A5C-4A3C-9B9D-5F0C10D93801}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0F0E3C41-1A5C-4A3C-9B9D-5F0C10D93801}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B8A4D2F-2B31-4C1C-BD0A-10F1B7C7B9D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B8A4D2F-2B31-4C1C-BD0A-10F1B7C7B9D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B8A4D2F-2B31-4C1C-BD0A-10F1B7C7B9D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B8A4D2F-2B31-4C1C-BD0A-10F1B7C7B9D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6F8E7D1-4B72-4A2E-9C31-5E8B1D2F7A40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6F8E7D1-4B72-4A2E-9C31-5E8B1D2F7A40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6F8E7D1-4B72-4A2E-9C31-5E8B1D2F7A40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6F8E7D1-4B72-4A2E-9C31-5E8B1D2F7A40}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F0E8CE95-B912-4C2F-B22B-6D0B174B1302}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F0E8CE95-B912-4C2F-B22B-6D0B174B1302}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F0E8CE95-B912-4C2F-B22B-6D0B174B1302}.Release|Any CPU.ActiveCfg = Release|Any CPU

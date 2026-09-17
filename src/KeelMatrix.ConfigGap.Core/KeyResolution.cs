@@ -10,7 +10,7 @@ internal sealed record StringResolution(string? Value, string Kind, Location? Pr
     public bool IsStatic => Value is not null;
 }
 
-internal static class KeyNormalizer
+public static class KeyNormalizer
 {
     public static string Normalize(string key) => key.Replace("__", ":", StringComparison.Ordinal);
 }

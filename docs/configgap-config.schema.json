@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://keelmatrix.dev/configgap/config.schema.json",
+  "title": "ConfigGap tool configuration",
+  "type": "object",
+  "required": ["version", "declarationSurfaces"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "frameworkOwnedPolicy": { "const": "exclude" },
+    "declarationSurfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "enum": ["json", "template"] },
+          "path": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <AssemblyName>ConfigGap.FixtureConsumer</AssemblyName>
     <RootNamespace>ConfigGap.FixtureConsumer</RootNamespace>
+    <NoWarn>$(NoWarn);CA1050</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,6 +1,6 @@
 ﻿namespace KeelMatrix.ConfigGap.Probe;
 
-internal static class FrameworkOwnedKeys
+public static class FrameworkOwnedKeys
 {
     // These roots are intentionally explicit. Application sections such as Authentication,
     // Identity, and Serilog are not framework-owned and remain in the evaluated domain.

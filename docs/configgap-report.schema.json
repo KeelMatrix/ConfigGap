@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://keelmatrix.dev/configgap/report.schema.json",
+  "title": "ConfigGap analysis report",
+  "type": "object",
+  "required": ["schemaVersion", "toolConfigurationSchemaVersion", "trustworthy", "exitCode", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "toolConfigurationSchemaVersion": { "const": 1 },
+    "trustworthy": { "type": "boolean" },
+    "exitCode": { "enum": [0, 1, 2] },
+    "blockingFindingCount": { "type": "integer", "minimum": 0 },
+    "warningFindingCount": { "type": "integer", "minimum": 0 },
+    "informationalFindingCount": { "type": "integer", "minimum": 0 },
+    "unknownAccessCount": { "type": "integer", "minimum": 0 },
+    "failureCode": { "type": ["string", "null"] },
+    "knownKeys": { "type": "array", "items": { "type": "string" } },
+    "bindableKeys": { "type": "array", "items": { "type": "string" } },
+    "requiredKeys": { "type": "array", "items": { "type": "string" } },
+    "actuallyReadKeys": { "type": "array", "items": { "type": "string" } },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "enum": ["CG001", "CG002", "CG900"] },
+          "severity": { "enum": ["ERROR", "WARNING", "INFO"] },
+          "message": { "type": "string" },
+          "key": { "type": ["string", "null"] },
+          "source": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "column": { "type": ["integer", "null"], "minimum": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "frameworkOwnedPolicy": "exclude",
+  "declarationSurfaces": [
+    { "kind": "json", "path": "appsettings.json" },
+    { "kind": "json", "path": "appsettings.Production.json" },
+    { "kind": "template", "path": ".env.example" }
+  ]
+}

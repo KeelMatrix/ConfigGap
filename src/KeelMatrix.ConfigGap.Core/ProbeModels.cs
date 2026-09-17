@@ -1,12 +1,12 @@
 namespace KeelMatrix.ConfigGap.Probe;
 
-internal sealed class PatternManifest
+public sealed class PatternManifest
 {
     public int Version { get; set; }
     public List<ExpectedPattern> Patterns { get; set; } = [];
 }
 
-internal sealed class ExpectedPattern
+public sealed class ExpectedPattern
 {
     public string Id { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
@@ -17,15 +17,24 @@ internal sealed class ExpectedPattern
     public int? ExpectedLine { get; set; }
 }
 
-internal sealed record ObservedAccess(
+public sealed record ObservedAccess(
     string Source,
     string Kind,
     string Resolution,
     string? Key,
     int Line,
-    int Column);
+    int Column)
+{
+    public string Evidence => Kind switch
+    {
+        "options-bind" or "options-bind-configuration" => "bindable",
+        "required-section" => "required",
+        "indexer" or "get-value" => "actually-read",
+        _ => "known"
+    };
+}
 
-internal sealed class PatternResult
+public sealed class PatternResult
 {
     public string Id { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
@@ -43,7 +52,7 @@ internal sealed class PatternResult
     public string? Failure { get; set; }
 }
 
-internal sealed class ProbeReport
+public sealed class ProbeReport
 {
     public int Version { get; set; } = 1;
     public string Analyzer { get; set; } = "MSBuildWorkspace/Roslyn semantic probe";
