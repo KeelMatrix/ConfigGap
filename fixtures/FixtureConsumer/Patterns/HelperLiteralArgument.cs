@@ -2,9 +2,16 @@ using Microsoft.Extensions.Configuration;
 
 public static class HelperLiteralArgument
 {
-    public static string? Read(IConfiguration configuration) =>
-        Require(configuration, "Helpers:Literal");
+    public static void Read(IConfiguration configuration)
+    {
+        static void Require(IConfiguration config, string key)
+        {
+            if (string.IsNullOrWhiteSpace(config[key]))
+            {
+                throw new InvalidOperationException($"Missing required configuration '{key}'.");
+            }
+        }
 
-    private static string? Require(IConfiguration configuration, string key) =>
-        configuration[key];
+        Require(configuration, "Helpers:Literal");
+    }
 }

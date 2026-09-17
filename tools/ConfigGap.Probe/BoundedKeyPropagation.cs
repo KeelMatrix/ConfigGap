@@ -123,18 +123,21 @@ internal static class BoundedKeyPropagation
                 model.GetSymbolInfo(identifier, cancellationToken).Symbol,
                 parameter))
             .ToArray();
-        if (uses.Length != 1 || !IsDirectMethodBodyUse(uses[0], body, parameter, model, compilation, cancellationToken))
+        var forwardingUses = uses
+            .Where(identifier => IsDirectMethodBodyUse(identifier, parameter, model, compilation, cancellationToken))
+            .ToArray();
+        if (forwardingUses.Length != 1 ||
+            uses.Any(identifier => !ReferenceEquals(identifier, forwardingUses[0]) && IsForbiddenParameterUse(identifier)))
         {
             return false;
         }
 
-        forwardingUse = uses[0];
+        forwardingUse = forwardingUses[0];
         return true;
     }
 
     private static bool IsDirectMethodBodyUse(
         IdentifierNameSyntax identifier,
-        SyntaxNode body,
         IParameterSymbol parameter,
         SemanticModel model,
         Compilation compilation,
@@ -146,16 +149,6 @@ internal static class BoundedKeyPropagation
             argument.Expression != identifier)
         {
             return false;
-        }
-
-        for (var ancestor = identifier.Parent; ancestor is not null && !ReferenceEquals(ancestor, body); ancestor = ancestor.Parent)
-        {
-            if (ancestor is IfStatementSyntax or ElseClauseSyntax or ConditionalExpressionSyntax or SwitchStatementSyntax or
-                SwitchExpressionSyntax or ForStatementSyntax or ForEachStatementSyntax or ForEachVariableStatementSyntax or
-                WhileStatementSyntax or DoStatementSyntax or WhenClauseSyntax)
-            {
-                return false;
-            }
         }
 
         if (argument.Parent?.Parent is ElementAccessExpressionSyntax elementAccess)
@@ -200,6 +193,34 @@ internal static class BoundedKeyPropagation
         }
 
         return methodName is "GetValue" or "GetSection" or "GetRequiredSection";
+    }
+
+    private static bool IsForbiddenParameterUse(IdentifierNameSyntax identifier)
+    {
+        if (identifier.Parent is AssignmentExpressionSyntax assignment && assignment.Left.Span.Contains(identifier.Span) ||
+            identifier.Parent is PrefixUnaryExpressionSyntax prefix && (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression)) ||
+            identifier.Parent is PostfixUnaryExpressionSyntax postfix && (postfix.IsKind(SyntaxKind.PostIncrementExpression) || postfix.IsKind(SyntaxKind.PostDecrementExpression)) ||
+            identifier.Parent is ArgumentSyntax argument && argument.Expression == identifier && argument.RefKindKeyword.RawKind != 0)
+        {
+            return true;
+        }
+
+        for (var ancestor = identifier.Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (ancestor is IfStatementSyntax conditional && conditional.Condition.Span.Contains(identifier.Span) ||
+                ancestor is WhileStatementSyntax whileStatement && whileStatement.Condition.Span.Contains(identifier.Span) ||
+                ancestor is DoStatementSyntax doStatement && doStatement.Condition.Span.Contains(identifier.Span) ||
+                ancestor is ForStatementSyntax forStatement && forStatement.Condition?.Span.Contains(identifier.Span) == true ||
+                ancestor is ConditionalExpressionSyntax conditionalExpression && conditionalExpression.Condition.Span.Contains(identifier.Span) ||
+                ancestor is SwitchStatementSyntax switchStatement && switchStatement.Expression.Span.Contains(identifier.Span) ||
+                ancestor is SwitchExpressionSyntax switchExpression && switchExpression.GoverningExpression.Span.Contains(identifier.Span) ||
+                ancestor is WhenClauseSyntax whenClause && whenClause.Condition.Span.Contains(identifier.Span))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsSupportedCallSiteConstant(StringResolution resolution) =>

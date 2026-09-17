@@ -65,7 +65,9 @@ internal static class Program
         var solutionPath = Path.GetFullPath(Required(args, "--solution"));
         var outputPath = Path.GetFullPath(Required(args, "--output"));
         var declarations = DeclarationGraph.Load(repositoryRoot);
-        var observations = await SemanticProbe.AnalyzeAsync(solutionPath, repositoryRoot);
+        var observations = solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+            ? await SemanticProbe.AnalyzeProjectAsync(solutionPath, repositoryRoot)
+            : await SemanticProbe.AnalyzeAsync(solutionPath, repositoryRoot);
         var expectedObservationCount = GetOptionalInt(args, "--expected-observations");
         if (observations.Count == 0)
         {
