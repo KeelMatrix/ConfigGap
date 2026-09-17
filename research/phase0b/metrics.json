@@ -4,8 +4,8 @@
   "protocol": "Distinct normalized configuration keys per repository; labels are independent manual truth data.",
   "repositoryCount": 10,
   "repositoryTimeoutSeconds": 120,
-  "staticKeyTruePositives": 5,
-  "staticKeyPredictions": 5,
+  "staticKeyTruePositives": 7,
+  "staticKeyPredictions": 7,
   "staticKeyRecallNumerator": 29,
   "staticKeyRecallDenominator": 29,
   "allLabeledStaticRecallNumerator": 29,
@@ -141,8 +141,8 @@
       "analyzerStaticKeys": 3,
       "labeledStaticKeys": 3,
       "allLabeledStaticKeys": 3,
-      "blockingTruePositives": 1,
-      "blockingPredictions": 1,
+      "blockingTruePositives": 3,
+      "blockingPredictions": 3,
       "recallNumerator": 3,
       "recallDenominator": 3,
       "allRecallNumerator": 3,
@@ -155,10 +155,14 @@
       "precisionProtocolControlBlockingFindings": 0,
       "precisionProtocolFailedCases": 0,
       "analyzerMissingKeys": [
-        "ASPNETCORE_BASEPATH"
+        "ASPNETCORE_BASEPATH",
+        "AuthenticationModule:AuthorityUrl",
+        "PersistenceModule:DefaultConnection"
       ],
       "labeledMissingKeys": [
-        "ASPNETCORE_BASEPATH"
+        "ASPNETCORE_BASEPATH",
+        "AuthenticationModule:AuthorityUrl",
+        "PersistenceModule:DefaultConnection"
       ],
       "falsePositiveKeys": [],
       "missedKeys": [],
@@ -376,6 +380,6 @@
     "longPathsEnabled": true,
     "configuredCoreLongpaths": null,
     "effectiveCoreLongpaths": "true",
-    "scratchRootLength": 77
+    "scratchRootLength": 115
   }
 }

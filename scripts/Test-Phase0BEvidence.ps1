@@ -50,6 +50,10 @@ if ($LASTEXITCODE -ne 0 -or $evidenceParent -ne $codeCandidate) {
 if ($LASTEXITCODE -ne 0) {
     throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not an ancestor of repository HEAD '$head'."
 }
+$headParent = (& git -C $repo rev-parse --verify "$head^" 2>&1).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $headParent -ne $evidenceCheckpoint) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: repository HEAD '$head' must be the direct report-anchor child of evidence checkpoint '$evidenceCheckpoint'."
+}
 $evidenceCommitMessage = (& git -C $repo log -1 --format=%s $evidenceCheckpoint 2>&1).Trim()
 $evidenceChangedFiles = @(& git -C $repo diff-tree --no-commit-id --name-only -r $evidenceCheckpoint 2>&1 | Where-Object { $_.Trim().Length -gt 0 })
 $allowedEvidenceFiles = @(
@@ -157,4 +161,4 @@ Assert-ReportMetric 'verdict' $verdict $metrics.verdict
 Write-Output "Code candidate ref: $codeCandidate"
 Write-Output "Evidence checkpoint ref: $evidenceCheckpoint"
 Write-Output "Metrics summary consistency: PASS"
-Write-Output "Evidence candidate consistency: PASS (evidence checkpoint child of code candidate; HEAD $head)"
+Write-Output "Evidence candidate consistency: PASS (code candidate -> evidence checkpoint -> report anchor; HEAD $head)"
