@@ -26,6 +26,8 @@ public sealed record ObservedAccess(
     int Line,
     int Column)
 {
+    public bool IsRequiredBinding { get; init; }
+
     public string Evidence => Kind switch
     {
         "options-bind" or "options-bind-configuration" => "bindable",

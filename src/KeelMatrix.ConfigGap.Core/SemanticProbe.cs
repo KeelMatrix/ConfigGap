@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace KeelMatrix.ConfigGap.Probe;
 
@@ -202,7 +203,8 @@ public sealed class SemanticProbe
                                     document.FilePath,
                                     GetAccessLocation(GetKnownConsumerInvocation(invocation, model, cancellationToken) ?? invocation),
                                     "options-bind",
-                                    new StringResolution(section.Value, section.Kind)));
+                                    new StringResolution(section.Value, section.Kind),
+                                    isRequiredBinding: methodName == "GetRequiredSection"));
                             }
                         }
 
@@ -217,12 +219,6 @@ public sealed class SemanticProbe
                             continue;
                         }
 
-                        var argument = invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
-                        if (argument is null)
-                        {
-                            continue;
-                        }
-
                         var kind = methodName switch
                         {
                             "GetValue" => "get-value",
@@ -230,7 +226,7 @@ public sealed class SemanticProbe
                             _ => "required-section"
                         };
                         var resolutions = methodName == "GetValue"
-                            ? ResolveConfigurationKey(receiver, argument, model, compilation, cancellationToken)
+                            ? ResolveGetValueKey(receiver, invocation, symbol!, model, compilation, cancellationToken)
                             : ResolveConfigurationPath(invocation, model, compilation, cancellationToken);
                         foreach (var resolution in resolutions)
                         {
@@ -246,17 +242,27 @@ public sealed class SemanticProbe
 
                     if (methodName == "GetChildren" && receiver is not null && IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
                     {
-                        foreach (var section in ResolveConfigurationPath(receiver, model, compilation, cancellationToken))
+                        var prefixes = ResolveSectionPrefix(receiver, model, compilation, cancellationToken);
+                        if (prefixes.Length == 0)
                         {
-                            if (section.Value is not null)
-                            {
-                                observations.Add(CreateObservation(
-                                    repositoryRoot,
-                                    document.FilePath,
-                                    GetAccessLocation(invocation),
-                                    "prefix",
-                                    new StringResolution(section.Value, "static-section-prefix")));
-                            }
+                            observations.Add(CreateObservation(
+                                repositoryRoot,
+                                document.FilePath,
+                                GetAccessLocation(invocation),
+                                "prefix",
+                                new StringResolution(null, "dynamic-prefix")));
+                        }
+
+                        foreach (var section in prefixes)
+                        {
+                            observations.Add(CreateObservation(
+                                repositoryRoot,
+                                document.FilePath,
+                                GetAccessLocation(invocation),
+                                "prefix",
+                                section.Value is null
+                                    ? new StringResolution(null, "dynamic-prefix")
+                                    : new StringResolution(section.Value, "static-section-prefix")));
                         }
 
                         continue;
@@ -276,7 +282,8 @@ public sealed class SemanticProbe
                                     document.FilePath,
                                     invocation,
                                     "options-bind",
-                                    new StringResolution(section.Value, "static-options-section")));
+                                    new StringResolution(section.Value, "static-options-section"),
+                                    isRequiredBinding: IsRequiredSectionInvocation(receiver)));
                             }
                         }
 
@@ -300,7 +307,8 @@ public sealed class SemanticProbe
                                     document.FilePath,
                                     GetAccessLocation(invocation),
                                     "options-bind",
-                                    new StringResolution(resolution.Value, resolution.Kind)));
+                                    new StringResolution(resolution.Value, resolution.Kind),
+                                    isRequiredBinding: IsRequiredSectionInvocation(section)));
                             }
                         }
 
@@ -461,7 +469,8 @@ public sealed class SemanticProbe
         string documentPath,
         SyntaxNode node,
         string kind,
-        StringResolution resolution)
+        StringResolution resolution,
+        bool isRequiredBinding = false)
     {
         var location = resolution.PrimaryLocation ?? node.GetLocation();
         var sourcePath = location.SourceTree?.FilePath ?? documentPath;
@@ -472,8 +481,57 @@ public sealed class SemanticProbe
             resolution.Kind,
             resolution.Value is null ? null : KeyNormalizer.Normalize(resolution.Value),
             lineSpan.StartLinePosition.Line + 1,
-            lineSpan.StartLinePosition.Character + 1);
+            lineSpan.StartLinePosition.Character + 1)
+        {
+            IsRequiredBinding = isRequiredBinding
+        };
     }
+
+    private static IReadOnlyList<StringResolution> ResolveGetValueKey(
+        ExpressionSyntax receiver,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        SemanticModel model,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        if (!method.IsGenericMethod)
+        {
+            return [new StringResolution(null, "unsupported-get-value")];
+        }
+
+        var key = GetInvocationArgument(invocation, "key", model, cancellationToken);
+        return key is null
+            ? [new StringResolution(null, "dynamic-unresolvable")]
+            : ResolveConfigurationKey(receiver, key, model, compilation, cancellationToken);
+    }
+
+    private static ExpressionSyntax? GetInvocationArgument(
+        InvocationExpressionSyntax invocation,
+        string parameterName,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.GetOperation(invocation, cancellationToken) is not IInvocationOperation operation)
+        {
+            return null;
+        }
+
+        foreach (var argument in operation.Arguments)
+        {
+            if (argument.Parameter?.Name.Equals(parameterName, StringComparison.Ordinal) == true)
+            {
+                return argument.Value.Syntax as ExpressionSyntax;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsRequiredSectionInvocation(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax invocation &&
+        invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+        memberAccess.Name.Identifier.Text == "GetRequiredSection";
 
     private static IReadOnlyList<StringResolution> ResolveKeys(
         ExpressionSyntax expression,

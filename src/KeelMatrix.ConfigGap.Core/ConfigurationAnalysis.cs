@@ -65,6 +65,8 @@ public sealed class ConfigGapReport
 
     public string? FailureCode { get; init; }
 
+    public string? FailureMessage { get; init; }
+
     public IReadOnlyList<ConfigGapFinding> Findings { get; init; } = [];
 
     public string ToDeterministicJson()
@@ -122,7 +124,8 @@ public static class ConfigurationAnalysisEngine
                     UnknownAccessCount = observations.Count(observation => observation.Key is null),
                     KnownKeys = GetKeys(observations),
                     BindableKeys = GetKeys(observations.Where(observation => observation.Evidence == "bindable")),
-                    RequiredKeys = GetKeys(observations.Where(observation => observation.Evidence == "required")),
+                    RequiredKeys = GetKeys(observations.Where(observation =>
+                        observation.Evidence == "required" || observation.IsRequiredBinding)),
                     ActuallyReadKeys = GetKeys(observations.Where(observation => observation.Evidence == "actually-read")),
                     Findings = ordered
                 }
@@ -141,6 +144,7 @@ public static class ConfigurationAnalysisEngine
                     Trustworthy = false,
                     ExitCode = (int)ConfigGapExitCode.AnalysisFailure,
                     FailureCode = GetFailureCode(exception.Message),
+                    FailureMessage = GetFailureMessage(exception.Message),
                     Findings = []
                 }
             };
@@ -234,5 +238,26 @@ public static class ConfigurationAnalysisEngine
     {
         var separator = message.IndexOf(':');
         return separator > 0 ? message[..separator] : "CONFIGGAP_ANALYSIS_FAILURE";
+    }
+
+    private static string GetFailureMessage(string message)
+    {
+        return GetFailureCode(message) switch
+        {
+            "CONFIGGAP_CONFIG_PARSE_FAILURE" or
+            "CONFIGGAP_CONFIG_VERSION" or
+            "CONFIGGAP_CONFIG_POLICY" or
+            "CONFIGGAP_CONFIG_SCHEMA" or
+            "CONFIGGAP_CONFIG_SURFACE" =>
+                "The ConfigGap tool configuration is invalid. Check the version 1 schema, declaration surface paths, and policy settings.",
+            "CONFIGGAP_DECLARATION_LOAD_FAILURE" =>
+                "A configured declaration surface could not be loaded. Check the configured relative paths and declaration file syntax.",
+            "CONFIGGAP_COMPILATION_LOAD_FAILURE" =>
+                "Roslyn could not create a trustworthy project compilation. Restore the project and fix project references, assets, and compilation errors before analysis.",
+            "CONFIGGAP_WORKSPACE_LOAD_FAILURE" =>
+                "MSBuildWorkspace could not load the selected solution or project. Restore the selected project and verify its SDK, project references, and assets.",
+            _ =>
+                "ConfigGap could not complete a trustworthy analysis. Review the project, declaration configuration, and workspace diagnostics."
+        };
     }
 }

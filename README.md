@@ -8,7 +8,7 @@ The core loads projects through `MSBuildWorkspace`, resolves supported `IConfigu
 - `WARNING` `CG002` — a declared example leaf key was not observed by analyzed code.
 - `INFO` `CG900` — an access could not be resolved statically. Dynamic means unknown, never missing.
 
-`ConfigGapReport` is schema version 1 and contains findings, counts, stable source locations, and key names only. It never contains declaration values. `ConfigGapExitCode` is `0` for trustworthy analysis without blocking findings, `1` for trustworthy analysis with blocking findings, and `2` when analysis could not run trustworthily.
+`ConfigGapReport` is schema version 1 and contains findings, counts, stable source locations, and key names only. Exit-code-2 reports also include a stable, sanitized recovery message. Reports never contain declaration values, source content, or paths. `ConfigGapExitCode` is `0` for trustworthy analysis without blocking findings, `1` for trustworthy analysis with blocking findings, and `2` when analysis could not run trustworthily.
 
 ## Declaration configuration
 

@@ -172,9 +172,22 @@ public sealed class DeclarationGraph
             var name = equals < 0 ? trimmed : trimmed[..equals].Trim();
             if (name.Length > 0)
             {
-                Add(name, leaf: true);
+                AddEnvironmentHierarchy(name);
             }
         }
+    }
+
+    private void AddEnvironmentHierarchy(string key)
+    {
+        var normalized = KeyNormalizer.Normalize(key);
+        var segmentEnd = normalized.IndexOf(':');
+        while (segmentEnd >= 0)
+        {
+            Add(normalized[..segmentEnd], leaf: false);
+            segmentEnd = normalized.IndexOf(':', segmentEnd + 1);
+        }
+
+        Add(normalized, leaf: true);
     }
 
     private void Add(string key, bool leaf)

@@ -28,6 +28,12 @@ public sealed class ConfigurationAnalysisTests
         Assert.Contains("Section", result.Report.RequiredKeys);
         Assert.Contains("Section:Key", result.Report.ActuallyReadKeys);
         Assert.Contains("Section:AliasKey", result.Report.ActuallyReadKeys);
+        Assert.Contains("RequiredOnly", result.Report.RequiredKeys);
+        Assert.Contains("RequiredOnly", result.Report.BindableKeys);
+        Assert.True(result.Report.UnknownAccessCount > 0);
+        Assert.Contains(result.Report.Findings, finding =>
+            finding.Code == "CG900" &&
+            finding.Source == "fixtures/FixtureConsumer/Patterns/RootGetChildren.cs");
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Unlisted:Key");
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Section:AliasMissing");
         Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG900" && finding.Severity == "ERROR");
@@ -127,6 +133,12 @@ public sealed class ConfigurationAnalysisTests
         Assert.Equal(ConfigGapExitCode.AnalysisFailure, result.ExitCode);
         Assert.False(result.Report.Trustworthy);
         Assert.NotNull(result.Report.FailureCode);
+        Assert.NotNull(result.Report.FailureMessage);
+        var failureMessage = result.Report.FailureMessage;
+        Assert.Contains("Restore", failureMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain(RepositoryRoot, failureMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("missing.sln", failureMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret", failureMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<ConfigGapAnalysisResult> AnalyzeFixtureAsync()

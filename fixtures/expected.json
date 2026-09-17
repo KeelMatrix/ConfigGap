@@ -29,7 +29,10 @@
     { "id": "json-nesting", "source": "fixtures/FixtureConsumer/Patterns/JsonNesting.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Payments:Provider:ApiKey"] },
     { "id": "literal-indexer", "source": "fixtures/FixtureConsumer/Patterns/LiteralIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "literal-undeclared", "source": "fixtures/FixtureConsumer/Patterns/LiteralUndeclared.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Unlisted:Key"] },
+    { "id": "mixed-named-get-value-arguments", "source": "fixtures/FixtureConsumer/Patterns/MixedNamedGetValueArguments.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Named:Key"] },
     { "id": "multi-project-reference", "source": "fixtures/FixtureConsumer/Patterns/MultiProjectReference.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["MultiProject:Key"] },
+    { "id": "named-get-value-arguments", "source": "fixtures/FixtureConsumer/Patterns/NamedGetValueArguments.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Named:Key"] },
+    { "id": "non-generic-get-value", "source": "fixtures/FixtureConsumer/Patterns/NonGenericGetValue.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "nested-options", "source": "fixtures/FixtureConsumer/Patterns/NestedOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "nullable-options", "source": "fixtures/FixtureConsumer/Patterns/NullableOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "options-bind", "source": "fixtures/FixtureConsumer/Patterns/OptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
@@ -38,10 +41,13 @@
     { "id": "relative-get-value", "source": "fixtures/FixtureConsumer/Patterns/RelativeGetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "relative-indexer", "source": "fixtures/FixtureConsumer/Patterns/RelativeIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "relative-required-section", "source": "fixtures/FixtureConsumer/Patterns/RelativeRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "required-options-bind", "source": "fixtures/FixtureConsumer/Patterns/RequiredOptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["RequiredOnly"] },
+    { "id": "root-get-children", "source": "fixtures/FixtureConsumer/Patterns/RootGetChildren.cs", "kind": "prefix", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "same-name-unrelated-helper", "source": "fixtures/FixtureConsumer/Patterns/SameNameUnrelatedHelper.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "section-variable-get-value", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableGetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 },
     { "id": "section-variable-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableIndexer.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Section:AliasMissing"], "expectedLine": 10, "expectedObservationCount": 2 },
     { "id": "section-variable-reassigned", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableReassigned.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [], "expectedLine": 11, "expectedObservationCount": 3 },
-    { "id": "section-variable-required-section", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 }
+    { "id": "section-variable-required-section", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 },
+    { "id": "template-only-options", "source": "fixtures/FixtureConsumer/Patterns/TemplateOnlyOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["TEMPLATE_ONLY"] }
   ]
 }
