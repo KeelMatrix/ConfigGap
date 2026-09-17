@@ -380,6 +380,6 @@
     "longPathsEnabled": true,
     "configuredCoreLongpaths": null,
     "effectiveCoreLongpaths": "true",
-    "scratchRootLength": 115
+    "scratchRootLength": 116
   }
 }

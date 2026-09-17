@@ -4,42 +4,42 @@
   "protocol": "Wall-clock bound is the greater of the observed maximum and mean plus two sample standard deviations, rounded up to the next 100 ms. Working-set bound is the observed maximum plus a 10% measurement margin, rounded up to the next MiB. These are measured regression bounds for this generated input and machine, not portable SLAs.",
   "projectCount": 50,
   "fixtureManifest": "fixtures/expected.json",
-  "projectFixturePatternCount": 36,
+  "projectFixturePatternCount": 40,
   "sharedFixturePatternCount": 2,
-  "expectedObservationCount": 1802,
+  "expectedObservationCount": 2252,
   "runs": [
     {
       "run": 1,
-      "observationCount": 1802,
+      "observationCount": 2252,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 21134,
-      "peakWorkingSetBytes": 231284736
+      "durationMilliseconds": 21198,
+      "peakWorkingSetBytes": 237490176
     },
     {
       "run": 2,
-      "observationCount": 1802,
+      "observationCount": 2252,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 19599,
-      "peakWorkingSetBytes": 229351424
+      "durationMilliseconds": 18817,
+      "peakWorkingSetBytes": 234844160
     },
     {
       "run": 3,
-      "observationCount": 1802,
+      "observationCount": 2252,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 18503,
-      "peakWorkingSetBytes": 230297600
+      "durationMilliseconds": 21318,
+      "peakWorkingSetBytes": 237359104
     }
   ],
   "variance": {
-    "wallClockMeanMilliseconds": 19745,
-    "wallClockSampleVarianceMillisecondsSquared": 1746600,
-    "wallClockSampleStandardDeviationMilliseconds": 1322,
-    "maximumWallClockMilliseconds": 21134,
+    "wallClockMeanMilliseconds": 20444,
+    "wallClockSampleVarianceMillisecondsSquared": 1989760,
+    "wallClockSampleStandardDeviationMilliseconds": 1411,
+    "maximumWallClockMilliseconds": 21318,
     "wallClockMargin": "two sample standard deviations, with maximum-observation floor",
-    "derivedWallClockBoundMilliseconds": 22400,
-    "maximumPeakWorkingSetBytes": 231284736,
+    "derivedWallClockBoundMilliseconds": 23300,
+    "maximumPeakWorkingSetBytes": 237490176,
     "peakWorkingSetMargin": "10% above observed maximum",
-    "derivedPeakWorkingSetBoundBytes": 254803968
+    "derivedPeakWorkingSetBoundBytes": 262144000
   },
   "machine": {
     "os": "Microsoft Windows 10.0.19045",
@@ -50,8 +50,8 @@
   },
   "frozenV1Baseline": {
     "scope": "The exact generated 50-project solution, exact observation-count guard, and machine description above.",
-    "wallClockBoundMilliseconds": 22400,
-    "peakWorkingSetBoundBytes": 254803968,
+    "wallClockBoundMilliseconds": 23300,
+    "peakWorkingSetBoundBytes": 262144000,
     "interpretation": "Measured regression bound only; rerun the same protocol after material analyzer changes."
   }
 }
