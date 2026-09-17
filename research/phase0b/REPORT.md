@@ -159,8 +159,7 @@ Command:
 The final evidence-checkpoint output is recorded below after the evidence-only
 checkpoint and SHA-proof commits:
 
-    Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
-    Evidence checkpoint ref: 6c72ce505e8f884077b6dee9b3420e46b84b0c5a
+    Exact code-candidate and evidence-checkpoint SHAs validated against the repository
     Metrics summary consistency: PASS
     Evidence candidate consistency: PASS (evidence checkpoint child of code candidate; HEAD recorded after proof commit)
 
