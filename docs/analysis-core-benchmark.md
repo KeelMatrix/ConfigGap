@@ -4,11 +4,11 @@ The checked-in performance protocol generates one clean 50-project solution from
 
 Final measured input and result:
 
-- 33 project fixture patterns plus 1 shared fixture pattern;
-- 1,651 observations on each guarded run;
-- durations: 20,933 ms, 19,384 ms, and 18,045 ms;
-- peak working sets: 229,347,328 bytes, 229,376,000 bytes, and 228,003,840 bytes;
-- derived bound: 22,400 ms wall clock and 252,706,816 bytes peak working set;
+- 40 project fixture patterns plus 2 shared fixture patterns;
+- 2,252 observations on each guarded run;
+- durations: 21,198 ms, 18,817 ms, and 21,318 ms;
+- peak working sets: 237,490,176 bytes, 234,844,160 bytes, and 237,359,104 bytes;
+- derived bound: 23,300 ms wall clock and 262,144,000 bytes peak working set;
 - SDK: 8.0.425; Windows 10.0.19045, x64, 16 processors.
 
 Command:
