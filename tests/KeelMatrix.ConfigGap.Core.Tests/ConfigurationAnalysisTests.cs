@@ -27,7 +27,9 @@ public sealed class ConfigurationAnalysisTests
         Assert.Contains("Payments", result.Report.BindableKeys);
         Assert.Contains("Section", result.Report.RequiredKeys);
         Assert.Contains("Section:Key", result.Report.ActuallyReadKeys);
+        Assert.Contains("Section:AliasKey", result.Report.ActuallyReadKeys);
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Unlisted:Key");
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Section:AliasMissing");
         Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG900" && finding.Severity == "ERROR");
         Assert.True(result.Report.Findings.Where(finding => finding.Code == "CG900").All(finding => finding.Severity == "INFO"));
     }
@@ -86,8 +88,11 @@ public sealed class ConfigurationAnalysisTests
         Assert.Contains("Section:Key", result.Report.ActuallyReadKeys);
         Assert.DoesNotContain("Key", result.Report.ActuallyReadKeys);
         Assert.Contains("Section:Key", result.Report.RequiredKeys);
+        Assert.Contains("Section:AliasKey", result.Report.RequiredKeys);
         Assert.DoesNotContain("Key", result.Report.RequiredKeys);
+        Assert.DoesNotContain("AliasKey", result.Report.RequiredKeys);
         Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Key");
+        Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "AliasKey");
     }
 
     [Theory]

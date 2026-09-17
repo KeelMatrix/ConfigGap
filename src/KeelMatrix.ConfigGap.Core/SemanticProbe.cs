@@ -1,5 +1,6 @@
 ﻿using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 
@@ -551,7 +552,8 @@ public sealed class SemanticProbe
         ExpressionSyntax expression,
         SemanticModel model,
         Compilation compilation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HashSet<ISymbol>? visitedLocals = null)
     {
         if (expression is not InvocationExpressionSyntax invocation ||
             invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
@@ -572,7 +574,7 @@ public sealed class SemanticProbe
             return [new StringResolution(null, "dynamic-unresolvable")];
         }
 
-        var prefixes = ResolveSectionPrefix(receiver, model, compilation, cancellationToken);
+        var prefixes = ResolveSectionPrefix(receiver, model, compilation, cancellationToken, visitedLocals);
         var keys = ResolveKeys(argument, model, compilation, cancellationToken);
         return CombineConfigurationPaths(prefixes, keys).ToArray();
     }
@@ -581,7 +583,8 @@ public sealed class SemanticProbe
         ExpressionSyntax receiver,
         SemanticModel model,
         Compilation compilation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HashSet<ISymbol>? visitedLocals = null)
     {
         var type = model.GetTypeInfo(receiver, cancellationToken).Type;
         if (type is null || !IsConfigurationType(type))
@@ -594,6 +597,13 @@ public sealed class SemanticProbe
             return [];
         }
 
+        var activeLocals = visitedLocals ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        if (receiver is IdentifierNameSyntax identifier &&
+            model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol local)
+        {
+            return ResolveLocalSectionPrefix(local, compilation, activeLocals, cancellationToken);
+        }
+
         if (receiver is not InvocationExpressionSyntax)
         {
             return [new StringResolution(null, "dynamic-section-prefix")];
@@ -603,10 +613,76 @@ public sealed class SemanticProbe
             invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Name.Identifier.Text is "GetSection" or "GetRequiredSection")
         {
-            return ResolveConfigurationPath(invocation, model, compilation, cancellationToken);
+            return ResolveConfigurationPath(invocation, model, compilation, cancellationToken, activeLocals);
         }
 
         return [new StringResolution(null, "dynamic-section-prefix")];
+    }
+
+    private static StringResolution[] ResolveLocalSectionPrefix(
+        ILocalSymbol local,
+        Compilation compilation,
+        HashSet<ISymbol> visitedLocals,
+        CancellationToken cancellationToken)
+    {
+        if (!visitedLocals.Add(local))
+        {
+            return [new StringResolution(null, "dynamic-section-prefix-cycle")];
+        }
+
+        var declaration = local.DeclaringSyntaxReferences.SingleOrDefault()?.GetSyntax(cancellationToken);
+        if (declaration is not VariableDeclaratorSyntax variable || variable.Initializer is null)
+        {
+            return [new StringResolution(null, "dynamic-section-local")];
+        }
+
+        var declarationModel = compilation.GetSemanticModel(variable.SyntaxTree);
+        var root = variable.SyntaxTree.GetRoot(cancellationToken);
+        if (root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => SymbolEqualityComparer.Default.Equals(
+                declarationModel.GetSymbolInfo(identifier, cancellationToken).Symbol,
+                local))
+            .Any(IsLocalWrite))
+        {
+            return [new StringResolution(null, "dynamic-section-reassigned")];
+        }
+
+        var initializerType = declarationModel.GetTypeInfo(variable.Initializer.Value, cancellationToken).Type;
+        if (initializerType is null || !IsConfigurationSectionType(initializerType))
+        {
+            return [new StringResolution(null, "dynamic-section-local")];
+        }
+
+        var resolutions = ResolveSectionPrefix(
+            variable.Initializer.Value,
+            declarationModel,
+            compilation,
+            cancellationToken,
+            visitedLocals);
+        return resolutions.Length == 0
+            ? [new StringResolution(null, "dynamic-section-local")]
+            : resolutions;
+    }
+
+    private static bool IsLocalWrite(IdentifierNameSyntax identifier)
+    {
+        if (identifier.Parent is AssignmentExpressionSyntax assignment && assignment.Left == identifier)
+        {
+            return true;
+        }
+
+        if (identifier.Parent is PrefixUnaryExpressionSyntax prefix &&
+            (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression)) ||
+            identifier.Parent is PostfixUnaryExpressionSyntax postfix &&
+            (postfix.IsKind(SyntaxKind.PostIncrementExpression) || postfix.IsKind(SyntaxKind.PostDecrementExpression)))
+        {
+            return true;
+        }
+
+        return identifier.Parent is ArgumentSyntax argument &&
+            argument.Expression == identifier &&
+            argument.RefKindKeyword.RawKind != 0;
     }
 
     private static bool IsConfigurationSectionType(ITypeSymbol type) =>

@@ -150,6 +150,14 @@ internal static class Program
                 .OrderBy(observation => observation.Line)
                 .ThenBy(observation => observation.Column)
                 .ToArray();
+            if (expected.ExpectedLine is not null && matched.Length > 1)
+            {
+                var lineMatched = matched.Where(observation => observation.Line == expected.ExpectedLine.Value).ToArray();
+                if (lineMatched.Length > 0)
+                {
+                    matched = lineMatched;
+                }
+            }
             var observedKeys = matched.Where(observation => observation.Key is not null)
                 .Select(observation => observation.Key!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)

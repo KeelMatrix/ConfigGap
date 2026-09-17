@@ -4,7 +4,7 @@ The reusable analysis core is the non-packable `KeelMatrix.ConfigGap.Core` proje
 
 ## Supported evidence
 
-The extractor uses Roslyn symbols and `MSBuildWorkspace`; it does not scan source with regular expressions. It resolves literals, `const` values, static concatenations/interpolations, and source-declared non-virtual direct `string` helper propagation through at most two same-compilation hops. Supported consumers are configuration indexers, `GetValue<T>`, `GetSection`, `GetRequiredSection`, Options `Configure`/`Bind`, `BindConfiguration`, and statically known configuration-section binding. Unknown or unsupported access remains `CG900` informational.
+The extractor uses Roslyn symbols and `MSBuildWorkspace`; it does not scan source with regular expressions. It resolves literals, `const` values, static concatenations/interpolations, bounded local `IConfigurationSection` aliases initialized from statically known section paths, and source-declared non-virtual direct `string` helper propagation through at most two same-compilation hops. Supported consumers are configuration indexers, `GetValue<T>`, `GetSection`, `GetRequiredSection`, Options `Configure`/`Bind`, `BindConfiguration`, and statically known configuration-section binding. Unknown or unsupported access remains `CG900` informational.
 
 Helper propagation is intentionally limited to methods and local functions declared in the compilation being analyzed. A helper declared in a referenced project is not propagated through its consuming call site: its parameterized body remains unknown and no key is inferred from the cross-project call. This is a conservative v1 boundary; use a direct access or a same-compilation helper when the key must be statically verified.
 
