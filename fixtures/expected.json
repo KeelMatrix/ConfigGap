@@ -39,9 +39,9 @@
     { "id": "relative-indexer", "source": "fixtures/FixtureConsumer/Patterns/RelativeIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "relative-required-section", "source": "fixtures/FixtureConsumer/Patterns/RelativeRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "same-name-unrelated-helper", "source": "fixtures/FixtureConsumer/Patterns/SameNameUnrelatedHelper.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
-    { "id": "section-variable-get-value", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableGetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10 },
-    { "id": "section-variable-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableIndexer.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Section:AliasMissing"], "expectedLine": 10 },
-    { "id": "section-variable-reassigned", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableReassigned.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [], "expectedLine": 11 },
-    { "id": "section-variable-required-section", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10 }
+    { "id": "section-variable-get-value", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableGetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 },
+    { "id": "section-variable-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableIndexer.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Section:AliasMissing"], "expectedLine": 10, "expectedObservationCount": 2 },
+    { "id": "section-variable-reassigned", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableReassigned.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [], "expectedLine": 11, "expectedObservationCount": 3 },
+    { "id": "section-variable-required-section", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 }
   ]
 }

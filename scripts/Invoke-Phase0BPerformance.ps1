@@ -36,7 +36,13 @@ if ($fixtureManifest.version -ne 1 -or @($fixtureManifest.patterns).Count -lt 1)
 $projectFixturePrefix = 'fixtures/FixtureConsumer/Patterns/'
 $projectFixturePatterns = @($fixtureManifest.patterns | Where-Object { $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
 $sharedFixturePatterns = @($fixtureManifest.patterns | Where-Object { -not $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
-$expectedObservations = ($projectFixturePatterns.Count * $ProjectCount) + $sharedFixturePatterns.Count
+$projectFixtureObservationCount = ($projectFixturePatterns | ForEach-Object {
+    if ($null -eq $_.expectedObservationCount) { 1 } else { [int]$_.expectedObservationCount }
+} | Measure-Object -Sum).Sum
+$sharedFixtureObservationCount = ($sharedFixturePatterns | ForEach-Object {
+    if ($null -eq $_.expectedObservationCount) { 1 } else { [int]$_.expectedObservationCount }
+} | Measure-Object -Sum).Sum
+$expectedObservations = ($projectFixtureObservationCount * $ProjectCount) + $sharedFixtureObservationCount
 if ($expectedObservations -lt 1) {
     throw 'CONFIGGAP_PERFORMANCE_FIXTURE_MANIFEST: derived observation count must be positive.'
 }
@@ -69,7 +75,7 @@ function Invoke-Dotnet {
 New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 try {
     Write-Output "Generating one clean $ProjectCount-project synthetic solution."
-    Write-Output "Derived expected observation count: $expectedObservations ($($projectFixturePatterns.Count) per generated consumer project; $($sharedFixturePatterns.Count) shared fixture observations)."
+    Write-Output "Derived expected observation count: $expectedObservations ($projectFixtureObservationCount per generated consumer project; $sharedFixtureObservationCount shared fixture observations)."
     [void](Invoke-Dotnet @(
         'run', '--project', $probeProject, '-c', 'Release', '--no-build', '--',
         '--generate-synthetic', $synthetic,

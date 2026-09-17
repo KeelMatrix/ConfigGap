@@ -15,6 +15,7 @@ public sealed class ExpectedPattern
     public string ExpectedClassification { get; set; } = string.Empty;
     public List<string> ExpectedKeys { get; set; } = [];
     public int? ExpectedLine { get; set; }
+    public int ExpectedObservationCount { get; set; } = 1;
 }
 
 public sealed record ObservedAccess(
