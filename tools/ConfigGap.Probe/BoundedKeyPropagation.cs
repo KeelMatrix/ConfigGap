@@ -63,7 +63,7 @@ internal static class BoundedKeyPropagation
             var direct = KeyResolution.Resolve(argument.Expression, callSite.Model);
             if (IsSupportedCallSiteConstant(direct))
             {
-                resolutions.Add(direct);
+                resolutions.Add(direct with { PrimaryLocation = callSite.Invocation.GetLocation() });
                 continue;
             }
 

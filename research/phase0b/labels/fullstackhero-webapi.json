@@ -19,9 +19,9 @@
     { "key": "AllowedHosts", "surface": "src/Host/FSH.Starter.Api/appsettings.json" }
   ],
   "accesses": [
-    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 31, "kind": "indexer", "key": "DatabaseOptions:ConnectionString", "supportedStatic": true, "certainty": "high" },
-    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 32, "kind": "indexer", "key": "CachingOptions:Redis", "supportedStatic": true, "certainty": "high" },
-    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 33, "kind": "indexer", "key": "JwtOptions:SigningKey", "supportedStatic": true, "certainty": "high" }
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 38, "kind": "indexer", "key": "DatabaseOptions:ConnectionString", "supportedStatic": true, "certainty": "high" },
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 39, "kind": "indexer", "key": "CachingOptions:Redis", "supportedStatic": true, "certainty": "high" },
+    { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 40, "kind": "indexer", "key": "JwtOptions:SigningKey", "supportedStatic": true, "certainty": "high" }
   ],
   "uncertainties": [
     { "source": "src/Host/FSH.Starter.Api/Program.cs", "line": 29, "description": "The local Require helper receives IConfiguration and is only called with literal keys.", "disposition": "each literal key access is labeled as a supported static access" },

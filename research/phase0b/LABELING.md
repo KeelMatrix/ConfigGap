@@ -6,6 +6,10 @@ For each selected project, a reviewer manually read every C# source file contain
 
 The labels contain source path, line, optional column for nested accesses, access kind, resolved key where manually known, certainty, and an uncertainty disposition. Values and secrets are intentionally excluded. `owner: framework` is used for framework/provider-owned roots and those items are excluded from application precision/recall. `GetConnectionString` is listed as outside the Phase 0A detector and is not used as evidence for the static-domain gate.
 
+## Primary-location policy
+
+For a supported static key reached through a helper, the literal or `const` call site is the primary location. The shared helper's `IConfiguration` access is implementation context rather than a distinct per-key location; it may be retained as secondary metadata, but it must not replace the call-site primary location. Labels for helper-mediated accesses therefore record the line containing the helper invocation.
+
 The selected project scope is a reproducible analyzability boundary, not a corpus filter based on results. It avoids Docker project files, unsupported solution formats, and repository-wide sample collections while preserving a real application project and its checked-in declarations. Repositories considered but excluded before labeling are listed at the end of this file.
 
 ## Excluded candidates

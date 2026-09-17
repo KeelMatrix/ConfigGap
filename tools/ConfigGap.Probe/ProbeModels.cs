@@ -14,6 +14,7 @@ internal sealed class ExpectedPattern
     public string Owner { get; set; } = "application";
     public string ExpectedClassification { get; set; } = string.Empty;
     public List<string> ExpectedKeys { get; set; } = [];
+    public int? ExpectedLine { get; set; }
 }
 
 internal sealed record ObservedAccess(
@@ -35,6 +36,8 @@ internal sealed class PatternResult
     public List<string> ExpectedKeys { get; set; } = [];
     public List<string> ObservedKeys { get; set; } = [];
     public List<string> Resolutions { get; set; } = [];
+    public int? ExpectedLine { get; set; }
+    public int? ObservedLine { get; set; }
     public int ObservationCount { get; set; }
     public bool Pass { get; set; }
     public string? Failure { get; set; }

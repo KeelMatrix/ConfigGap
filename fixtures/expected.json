@@ -18,8 +18,9 @@
     { "id": "get-section", "source": "fixtures/FixtureConsumer/Patterns/GetSection.cs", "kind": "section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
     { "id": "get-value", "source": "fixtures/FixtureConsumer/Patterns/GetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "helper-beyond-depth", "source": "fixtures/FixtureConsumer/Patterns/HelperBeyondDepth.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
-    { "id": "helper-const-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperConstArgument.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Helpers:Const"] },
-    { "id": "helper-literal-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperLiteralArgument.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Helpers:Literal"] },
+    { "id": "helper-branch-condition", "source": "fixtures/FixtureConsumer/Patterns/HelperBranchCondition.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "helper-const-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperConstArgument.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Helpers:Const"], "expectedLine": 8 },
+    { "id": "helper-literal-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperLiteralArgument.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Helpers:Literal"], "expectedLine": 15 },
     { "id": "helper-nonconstant-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperNonConstantArgument.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "helper-reassigned-parameter", "source": "fixtures/FixtureConsumer/Patterns/HelperReassignedParameter.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "interpolated-key", "source": "fixtures/FixtureConsumer/Patterns/InterpolatedKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:InterpolatedKey"] },
@@ -31,6 +32,7 @@
     { "id": "nullable-options", "source": "fixtures/FixtureConsumer/Patterns/NullableOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "options-bind", "source": "fixtures/FixtureConsumer/Patterns/OptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "options-builder-impostor", "source": "fixtures/FixtureConsumer/Patterns/OptionsBuilderImpostor.cs", "kind": "options-bind-configuration", "expectedClassification": "unknown", "expectedKeys": [] },
-    { "id": "prefix-access", "source": "fixtures/FixtureConsumer/Patterns/PrefixAccess.cs", "kind": "prefix", "expectedClassification": "declared", "expectedKeys": ["Features"] }
+    { "id": "prefix-access", "source": "fixtures/FixtureConsumer/Patterns/PrefixAccess.cs", "kind": "prefix", "expectedClassification": "declared", "expectedKeys": ["Features"] },
+    { "id": "same-name-unrelated-helper", "source": "fixtures/FixtureConsumer/Patterns/SameNameUnrelatedHelper.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] }
   ]
 }

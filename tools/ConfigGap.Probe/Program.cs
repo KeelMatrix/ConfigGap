@@ -183,6 +183,8 @@ internal static class Program
                 ExpectedKeys = expectedKeys,
                 ObservedKeys = observedKeys,
                 Resolutions = resolutions,
+                ExpectedLine = expected.ExpectedLine,
+                ObservedLine = matched.Length == 1 ? matched[0].Line : null,
                 ObservationCount = matched.Length,
                 Pass = failure is null,
                 Failure = failure
@@ -234,6 +236,11 @@ internal static class Program
         if (!expectedKeys.SequenceEqual(observedKeys, StringComparer.OrdinalIgnoreCase))
         {
             return "expected and observed normalized keys differ";
+        }
+
+        if (expected.ExpectedLine is not null && matched[0].Line != expected.ExpectedLine.Value)
+        {
+            return $"expected primary location line {expected.ExpectedLine.Value}, observed line {matched[0].Line}";
         }
 
         return null;

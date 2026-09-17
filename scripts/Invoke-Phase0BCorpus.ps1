@@ -155,11 +155,11 @@ try {
             Remove-Item -LiteralPath $resolvedTarget -Recurse -Force
         }
 
-        Write-Output "Cloning $($repository.id) at $($repository.commitSha)"
+        Write-Output "Preflight cloning $($repository.id) at $($repository.commitSha)"
         $clone = Invoke-BoundedCommand 'git' @('clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
         Write-CommandOutput $clone
         if ($clone.ExitCode -ne 0) {
-            throw "Clone failed for $($repository.id) with exit code $($clone.ExitCode)."
+            throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: clone failed for $($repository.id) with exit code $($clone.ExitCode)."
         }
 
         $commitCheck = Invoke-BoundedCommand 'git' @('-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
@@ -171,15 +171,22 @@ try {
 
         $checkout = Invoke-BoundedCommand 'git' @('-C', $target, 'checkout', '--detach', $repository.commitSha) 60
         Write-CommandOutput $checkout
-        if ($checkout.ExitCode -ne 0) { throw "Commit checkout failed for $($repository.id) with exit code $($checkout.ExitCode)." }
+        if ($checkout.ExitCode -ne 0) { throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: commit checkout failed for $($repository.id) with exit code $($checkout.ExitCode)." }
 
         $actualSha = (Invoke-BoundedCommand 'git' @('-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
         if ($actualSha -ne $repository.commitSha) {
-            throw "Commit mismatch for $($repository.id): expected $($repository.commitSha), got $actualSha."
+            throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: commit mismatch for $($repository.id): expected $($repository.commitSha), got $actualSha."
         }
 
         $status = (Invoke-BoundedCommand 'git' @('-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
-        if ($status) { throw "Fresh clone is not clean for $($repository.id): $status" }
+        if ($status) { throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: fresh clone is not clean for $($repository.id): $status" }
+        Write-Output "Clone preflight passed: $($repository.id) at $actualSha"
+    }
+
+    Write-Output "Pinned corpus clone preflight passed for $(@($index.repositories).Count) repositories; beginning restore and analysis preparation."
+    foreach ($repository in $index.repositories) {
+        Assert-RunWithinDeadline
+        $target = Join-Path $clonesRoot $repository.id
 
         $labelPath = Join-Path $labelsRoot ($repository.id + '.json')
         $label = Get-Content -Raw -LiteralPath $labelPath | ConvertFrom-Json

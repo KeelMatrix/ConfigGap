@@ -409,9 +409,11 @@ internal sealed class SemanticProbe
         string kind,
         StringResolution resolution)
     {
-        var lineSpan = node.GetLocation().GetLineSpan();
+        var location = resolution.PrimaryLocation ?? node.GetLocation();
+        var sourcePath = location.SourceTree?.FilePath ?? documentPath;
+        var lineSpan = location.GetLineSpan();
         return new ObservedAccess(
-            Path.GetRelativePath(repositoryRoot, documentPath).Replace(Path.DirectorySeparatorChar, '/'),
+            Path.GetRelativePath(repositoryRoot, sourcePath).Replace(Path.DirectorySeparatorChar, '/'),
             kind,
             resolution.Kind,
             resolution.Value is null ? null : KeyNormalizer.Normalize(resolution.Value),

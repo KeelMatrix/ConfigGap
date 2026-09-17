@@ -4,7 +4,6 @@ param(
     [string]$ScratchRoot = (Join-Path $env:TEMP "configgap-phase0b-benchmark-$PID"),
     [string]$OutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'research/phase0b/performance.json'),
     [int]$ProjectCount = 50,
-    [int]$ExpectedObservations = 1251,
     [int]$RunCount = 3
 )
 
@@ -12,17 +11,34 @@ $ErrorActionPreference = 'Stop'
 if ($RunCount -lt 3) {
     throw 'CONFIGGAP_PERFORMANCE_POLICY_INVALID: the benchmark requires at least three guarded runs.'
 }
-if ($ProjectCount -lt 1 -or $ExpectedObservations -lt 1) {
-    throw 'CONFIGGAP_PERFORMANCE_POLICY_INVALID: project and observation counts must be positive.'
+if ($ProjectCount -lt 1) {
+    throw 'CONFIGGAP_PERFORMANCE_POLICY_INVALID: project count must be positive.'
 }
 
 $repo = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $scratch = [IO.Path]::GetFullPath($ScratchRoot)
 $synthetic = Join-Path $scratch 'synthetic-50'
 $probeProject = Join-Path $repo 'tools/ConfigGap.Probe/ConfigGap.Probe.csproj'
+$fixtureManifestPath = Join-Path $repo 'fixtures/expected.json'
 $output = [IO.Path]::GetFullPath($OutputPath)
 if (-not (Test-Path -LiteralPath $probeProject)) {
     throw "Probe project not found: $probeProject"
+}
+if (-not (Test-Path -LiteralPath $fixtureManifestPath)) {
+    throw "Fixture manifest not found: $fixtureManifestPath"
+}
+
+$fixtureManifest = Get-Content -Raw -LiteralPath $fixtureManifestPath | ConvertFrom-Json
+if ($fixtureManifest.version -ne 1 -or @($fixtureManifest.patterns).Count -lt 1) {
+    throw "CONFIGGAP_PERFORMANCE_FIXTURE_MANIFEST: unsupported or empty fixture manifest: $fixtureManifestPath"
+}
+
+$projectFixturePrefix = 'fixtures/FixtureConsumer/Patterns/'
+$projectFixturePatterns = @($fixtureManifest.patterns | Where-Object { $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
+$sharedFixturePatterns = @($fixtureManifest.patterns | Where-Object { -not $_.source.StartsWith($projectFixturePrefix, [StringComparison]::OrdinalIgnoreCase) })
+$expectedObservations = ($projectFixturePatterns.Count * $ProjectCount) + $sharedFixturePatterns.Count
+if ($expectedObservations -lt 1) {
+    throw 'CONFIGGAP_PERFORMANCE_FIXTURE_MANIFEST: derived observation count must be positive.'
 }
 if (Test-Path -LiteralPath $scratch) {
     throw "Benchmark scratch root already exists; use a new clean root: $scratch"
@@ -53,6 +69,7 @@ function Invoke-Dotnet {
 New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 try {
     Write-Output "Generating one clean $ProjectCount-project synthetic solution."
+    Write-Output "Derived expected observation count: $expectedObservations ($($projectFixturePatterns.Count) per generated consumer project; $($sharedFixturePatterns.Count) shared fixture observations)."
     [void](Invoke-Dotnet @(
         'run', '--project', $probeProject, '-c', 'Release', '--no-build', '--',
         '--generate-synthetic', $synthetic,
@@ -70,11 +87,11 @@ try {
             '--analyze-only',
             '--repository-root', $synthetic,
             '--solution', (Join-Path $synthetic 'ConfigGap.Synthetic.sln'),
-            '--expected-observations', $ExpectedObservations.ToString([Globalization.CultureInfo]::InvariantCulture),
+            '--expected-observations', $expectedObservations.ToString([Globalization.CultureInfo]::InvariantCulture),
             '--output', $resultPath)
         $measurement = Get-Content -Raw -LiteralPath $resultPath | ConvertFrom-Json
-        if ($measurement.observationCount -ne $ExpectedObservations) {
-            throw "CONFIGGAP_UNEXPECTED_OBSERVATIONS: run $run expected $ExpectedObservations observations, found $($measurement.observationCount)."
+        if ($measurement.observationCount -ne $expectedObservations) {
+            throw "CONFIGGAP_UNEXPECTED_OBSERVATIONS: run $run expected $expectedObservations observations derived from $fixtureManifestPath, found $($measurement.observationCount)."
         }
 
         Write-Output "Guarded run $run raw output tail:"
@@ -111,10 +128,13 @@ try {
     }
     $report = [ordered]@{
         version = 1
-        method = 'Generate one clean deterministic 50-project solution, restore it once, then run the unchanged analyzer at least three times with an exact observation-count guard on every run.'
+        method = 'Generate one clean deterministic solution from the committed fixture corpus, restore it once, derive the expected observation count from fixtures/expected.json, then run the unchanged analyzer at least three times with an exact observation-count guard on every run.'
         protocol = 'Wall-clock bound is the greater of the observed maximum and mean plus two sample standard deviations, rounded up to the next 100 ms. Working-set bound is the observed maximum plus a 10% measurement margin, rounded up to the next MiB. These are measured regression bounds for this generated input and machine, not portable SLAs.'
         projectCount = $ProjectCount
-        expectedObservationCount = $ExpectedObservations
+        fixtureManifest = 'fixtures/expected.json'
+        projectFixturePatternCount = $projectFixturePatterns.Count
+        sharedFixturePatternCount = $sharedFixturePatterns.Count
+        expectedObservationCount = $expectedObservations
         runs = @($runs)
         variance = [ordered]@{
             wallClockMeanMilliseconds = [long][Math]::Round($mean, 0)

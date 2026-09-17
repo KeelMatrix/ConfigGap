@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace KeelMatrix.ConfigGap.Probe;
 
-internal sealed record StringResolution(string? Value, string Kind)
+internal sealed record StringResolution(string? Value, string Kind, Location? PrimaryLocation = null)
 {
     public bool IsStatic => Value is not null;
 }
