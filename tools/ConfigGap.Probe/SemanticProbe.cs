@@ -156,12 +156,15 @@ internal sealed class SemanticProbe
                         continue;
                     }
 
-                    observations.Add(CreateObservation(
-                        repositoryRoot,
-                        document.FilePath,
-                        elementAccess,
-                        "indexer",
-                        KeyResolution.Resolve(argument, model)));
+                    foreach (var resolution in ResolveKeys(argument, model, compilation, cancellationToken))
+                    {
+                        observations.Add(CreateObservation(
+                            repositoryRoot,
+                            document.FilePath,
+                            elementAccess,
+                            "indexer",
+                            resolution));
+                    }
                 }
 
                 foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
@@ -199,26 +202,31 @@ internal sealed class SemanticProbe
                             "GetSection" => "section",
                             _ => "required-section"
                         };
-                        observations.Add(CreateObservation(
-                            repositoryRoot,
-                            document.FilePath,
-                            invocation,
-                            kind,
-                            KeyResolution.Resolve(argument, model)));
+                        foreach (var resolution in ResolveKeys(argument, model, compilation, cancellationToken))
+                        {
+                            observations.Add(CreateObservation(
+                                repositoryRoot,
+                                document.FilePath,
+                                GetAccessLocation(invocation),
+                                kind,
+                                resolution));
+                        }
                         continue;
                     }
 
                     if (methodName == "GetChildren" && receiver is not null && IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
                     {
-                        var section = ResolveConfigurationPath(receiver, model, cancellationToken);
-                        if (section is not null)
+                        foreach (var section in ResolveConfigurationPath(receiver, model, compilation, cancellationToken))
                         {
-                            observations.Add(CreateObservation(
-                                repositoryRoot,
-                                document.FilePath,
-                                invocation,
-                                "prefix",
-                                new StringResolution(section, "static-section-prefix")));
+                            if (section.Value is not null)
+                            {
+                                observations.Add(CreateObservation(
+                                    repositoryRoot,
+                                    document.FilePath,
+                                    invocation,
+                                    "prefix",
+                                    new StringResolution(section.Value, "static-section-prefix")));
+                            }
                         }
 
                         continue;
@@ -229,15 +237,17 @@ internal sealed class SemanticProbe
                         IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type) &&
                         symbol.ContainingNamespace?.ToDisplayString() == "Microsoft.Extensions.Configuration")
                     {
-                        var section = ResolveConfigurationPath(receiver, model, cancellationToken);
-                        if (section is not null)
+                        foreach (var section in ResolveConfigurationPath(receiver, model, compilation, cancellationToken))
                         {
-                            observations.Add(CreateObservation(
-                                repositoryRoot,
-                                document.FilePath,
-                                invocation,
-                                "options-bind",
-                                new StringResolution(section, "static-options-section")));
+                            if (section.Value is not null)
+                            {
+                                observations.Add(CreateObservation(
+                                    repositoryRoot,
+                                    document.FilePath,
+                                    invocation,
+                                    "options-bind",
+                                    new StringResolution(section.Value, "static-options-section")));
+                            }
                         }
 
                         continue;
@@ -249,12 +259,15 @@ internal sealed class SemanticProbe
                         if (symbol is not null && IsSupportedBindConfiguration(symbol, model.GetTypeInfo(receiver, cancellationToken).Type) &&
                             argument is not null)
                         {
-                            observations.Add(CreateObservation(
-                                repositoryRoot,
-                                document.FilePath,
-                                invocation,
-                                "options-bind-configuration",
-                                KeyResolution.Resolve(argument, model)));
+                            foreach (var resolution in ResolveKeys(argument, model, compilation, cancellationToken))
+                            {
+                                observations.Add(CreateObservation(
+                                    repositoryRoot,
+                                    document.FilePath,
+                                    GetAccessLocation(invocation),
+                                    "options-bind-configuration",
+                                    resolution));
+                            }
                         }
                         else
                         {
@@ -406,6 +419,25 @@ internal sealed class SemanticProbe
             lineSpan.StartLinePosition.Character + 1);
     }
 
+    private static IReadOnlyList<StringResolution> ResolveKeys(
+        ExpressionSyntax expression,
+        SemanticModel model,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var resolution = KeyResolution.Resolve(expression, model);
+        if (resolution.IsStatic)
+        {
+            return [resolution];
+        }
+
+        var propagated = BoundedKeyPropagation.Resolve(expression, model, compilation, cancellationToken);
+        return propagated.Count == 0 ? [resolution] : propagated;
+    }
+
+    private static SyntaxNode GetAccessLocation(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Name : invocation;
+
     private static bool IsConfigurationType(ITypeSymbol? type)
     {
         if (type is null)
@@ -438,27 +470,36 @@ internal sealed class SemanticProbe
     private static ExpressionSyntax? GetReceiver(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Expression : null;
 
-    private static string? ResolveConfigurationPath(
+    private static IReadOnlyList<StringResolution> ResolveConfigurationPath(
         ExpressionSyntax expression,
         SemanticModel model,
+        Compilation compilation,
         CancellationToken cancellationToken)
     {
         if (expression is not InvocationExpressionSyntax invocation ||
             invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
             memberAccess.Name.Identifier.Text is not ("GetSection" or "GetRequiredSection"))
         {
-            return null;
+            return [];
         }
 
         var receiver = memberAccess.Expression;
         if (!IsConfigurationType(model.GetTypeInfo(receiver, cancellationToken).Type))
         {
-            return null;
+            return [];
         }
 
         var argument = invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
-        var resolution = argument is null ? new StringResolution(null, "dynamic-unresolvable") : KeyResolution.Resolve(argument, model);
-        return resolution.Value is null ? null : KeyNormalizer.Normalize(resolution.Value);
+        if (argument is null)
+        {
+            return [new StringResolution(null, "dynamic-unresolvable")];
+        }
+
+        return ResolveKeys(argument, model, compilation, cancellationToken)
+            .Select(resolution => resolution.Value is null
+                ? resolution
+                : new StringResolution(KeyNormalizer.Normalize(resolution.Value), resolution.Kind))
+            .ToArray();
     }
 
     private static bool IsReceiverOfKnownConsumer(

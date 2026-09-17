@@ -24,7 +24,7 @@ pwsh -NoProfile -File .\scripts\Test-WorkspaceFailure.ps1
 
 The Options binding fixture requires the resolved method to be the Microsoft `OptionsBuilder<T>.BindConfiguration` extension. A user-defined type with the same name is retained as `unknown`.
 
-Supported key resolution is deliberately bounded to string literals, `const` values, statically resolvable concatenations, and interpolations whose parts are statically resolvable. Variables, parameters, method calls, computed values, and configuration-supplied key expressions are reported as `unknown`.
+Supported key resolution is deliberately bounded to string literals, `const` values, statically resolvable concatenations, and interpolations whose parts are statically resolvable. A direct source-declared helper may forward one `string` parameter without reassignment or branching into a supported indexer, `GetValue<T>`, `GetSection`, `GetRequiredSection`, or `BindConfiguration` access when its call-site argument is a literal or `const`; this propagation is limited to two same-compilation hops. Virtual/interface dispatch, cross-assembly calls, fields/properties/collections, reassigned parameters, non-constant call sites, and deeper chains remain `unknown` and never produce blocking findings.
 
 The workspace path is registered with `Microsoft.Build.Locator`, and fixture projects are opened with `Microsoft.CodeAnalysis.Workspaces.MSBuild` so project references and compilation references are resolved by MSBuild rather than by regular-expression scanning. The Options fixture uses the framework's `BindConfiguration` API rather than a local substitute.
 
@@ -42,6 +42,8 @@ pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 `
 On Windows, the script reads the effective Git `core.longpaths` setting without injecting a value, combines it with the OS setting and the actual resolved scratch-root length, and uses a documented short-root fallback when either long-path prerequisite is unavailable. It fails fast with an actionable `CONFIGGAP_LONG_PATH_PREREQUISITE` diagnostic if neither path is valid. The report includes supported-domain recall, all-labeled-static-key recall, the controlled precision protocol, dynamic-blocking count, status for every repository, and load-failure count.
 
 The blocking precision protocol is predeclared and non-vacuous. For each distinct hand-labeled supported static application key, the evaluator synchronizes a declaration graph containing the labeled keys, removes exactly that key for one variant, and requires one blocking finding at the key's primary labeled location. A no-removal control variant must produce zero blocking findings. The precision claim requires at least 10 observed blocking predictions; below that denominator it reports `UNVERIFIED` and fails the gate. Dynamic and unresolvable accesses remain unknown and are never made blocking.
+
+Before treating a Phase 0B report as current evidence, run `pwsh -NoProfile -File .\scripts\Test-Phase0BEvidence.ps1`. It fails closed when the report's recorded `Candidate ref:` SHA differs from the checked-out `HEAD`.
 
 The performance protocol uses a clean generated solution, restores it once, and performs at least three guarded measurements. The checked-in bound is derived from the observed maximum and the mean plus two sample standard deviations, with the named margin and rounding recorded in `research/phase0b/performance.json`:
 
