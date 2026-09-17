@@ -43,7 +43,7 @@ On Windows, the script reads the effective Git `core.longpaths` setting without 
 
 The blocking precision protocol is predeclared and non-vacuous. For each distinct hand-labeled supported static application key, the evaluator synchronizes a declaration graph containing the labeled keys, removes exactly that key for one variant, and requires one blocking finding at the key's primary labeled location. A no-removal control variant must produce zero blocking findings. The precision claim requires at least 10 observed blocking predictions; below that denominator it reports `UNVERIFIED` and fails the gate. Dynamic and unresolvable accesses remain unknown and are never made blocking.
 
-Before treating a Phase 0B report as current evidence, run `pwsh -NoProfile -File .\scripts\Test-Phase0BEvidence.ps1`. It fails closed when the report's recorded `Candidate ref:` SHA differs from the checked-out `HEAD`.
+Before treating a Phase 0B report as current evidence, run `pwsh -NoProfile -File .\scripts\Test-Phase0BEvidence.ps1`. It fails closed when the report's recorded `Candidate ref:` SHA differs from the checked-out code `HEAD`; the only permitted exception is the named evidence-only checkpoint commit, which must contain only regenerated Phase 0B evidence files and have that code candidate as its parent.
 
 The performance protocol uses a clean generated solution, restores it once, and performs at least three guarded measurements. The checked-in bound is derived from the observed maximum and the mean plus two sample standard deviations, with the named margin and rounding recorded in `research/phase0b/performance.json`:
 

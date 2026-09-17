@@ -6,25 +6,25 @@
   "repositoryTimeoutSeconds": 120,
   "staticKeyTruePositives": 5,
   "staticKeyPredictions": 5,
-  "staticKeyRecallNumerator": 26,
+  "staticKeyRecallNumerator": 29,
   "staticKeyRecallDenominator": 29,
-  "allLabeledStaticRecallNumerator": 26,
+  "allLabeledStaticRecallNumerator": 29,
   "allLabeledStaticRecallDenominator": 29,
   "dynamicBlockingFindings": 0,
   "loadFailureCount": 0,
   "dynamicAccessesNeverBlock": true,
-  "blockingPrecision": 92.31,
+  "blockingPrecision": 93.10,
   "corpusBlockingPrecision": 100,
   "blockingPrecisionStatus": "FAIL",
   "precisionMinimumPredictions": 10,
   "precisionProtocol": "For every distinct hand-labeled supported static application key, synchronize a declaration graph containing the labeled keys, remove exactly that key for one variant, require one blocking finding at its primary labeled location, and require zero blocking findings in the no-removal control variant.",
   "precisionProtocolCases": 29,
-  "precisionProtocolTruePositives": 24,
-  "precisionProtocolPredictions": 26,
+  "precisionProtocolTruePositives": 27,
+  "precisionProtocolPredictions": 29,
   "precisionProtocolControlBlockingFindings": 0,
-  "precisionProtocolFailedCases": 5,
-  "staticKeyRecall": 89.66,
-  "allLabeledStaticRecall": 89.66,
+  "precisionProtocolFailedCases": 2,
+  "staticKeyRecall": 100,
+  "allLabeledStaticRecall": 100,
   "verdict": "FAIL",
   "recallDomain": "Supported static application accesses are hand-labeled supportedStatic=true, owner=application, with a non-null key and kind indexer, get-value, section, required-section, options-bind, or options-bind-configuration. Exclude dynamic/unresolvable, unsupported APIs, framework-owned keys, and provider-specific forms under section 8; membership is determined from labels, never from analyzer output.",
   "repositories": [
@@ -292,52 +292,29 @@
       "status": "analyzed",
       "loadFailureCode": null,
       "loadFailure": null,
-      "analyzerStaticKeys": 0,
+      "analyzerStaticKeys": 3,
       "labeledStaticKeys": 3,
       "allLabeledStaticKeys": 3,
       "blockingTruePositives": 0,
       "blockingPredictions": 0,
-      "recallNumerator": 0,
+      "recallNumerator": 3,
       "recallDenominator": 3,
-      "allRecallNumerator": 0,
+      "allRecallNumerator": 3,
       "allRecallDenominator": 3,
       "labeledDynamicAccesses": 0,
       "dynamicBlockingFindings": 0,
       "precisionProtocolCases": 3,
-      "precisionProtocolTruePositives": 0,
-      "precisionProtocolPredictions": 0,
+      "precisionProtocolTruePositives": 1,
+      "precisionProtocolPredictions": 3,
       "precisionProtocolControlBlockingFindings": 0,
-      "precisionProtocolFailedCases": 3,
+      "precisionProtocolFailedCases": 2,
       "analyzerMissingKeys": [],
       "labeledMissingKeys": [],
       "falsePositiveKeys": [],
-      "missedKeys": [
-        {
-          "key": "DatabaseOptions:ConnectionString",
-          "source": "src/Host/FSH.Starter.Api/Program.cs",
-          "line": 31,
-          "cause": "semantic analyzer miss",
-          "detail": "Labeled indexer access was not observed by the analyzer."
-        },
-        {
-          "key": "CachingOptions:Redis",
-          "source": "src/Host/FSH.Starter.Api/Program.cs",
-          "line": 32,
-          "cause": "semantic analyzer miss",
-          "detail": "Labeled indexer access was not observed by the analyzer."
-        },
-        {
-          "key": "JwtOptions:SigningKey",
-          "source": "src/Host/FSH.Starter.Api/Program.cs",
-          "line": 33,
-          "cause": "semantic analyzer miss",
-          "detail": "Labeled indexer access was not observed by the analyzer."
-        }
-      ],
+      "missedKeys": [],
       "precisionProtocolFailures": [
-        "CachingOptions:Redis expected one finding at src/Host/FSH.Starter.Api/Program.cs:32, observed 0 (-)",
-        "DatabaseOptions:ConnectionString expected one finding at src/Host/FSH.Starter.Api/Program.cs:31, observed 0 (-)",
-        "JwtOptions:SigningKey expected one finding at src/Host/FSH.Starter.Api/Program.cs:33, observed 0 (-)"
+        "CachingOptions:Redis expected one finding at src/Host/FSH.Starter.Api/Program.cs:32, observed 1 (CachingOptions:Redis@src/Host/FSH.Starter.Api/Program.cs:31)",
+        "JwtOptions:SigningKey expected one finding at src/Host/FSH.Starter.Api/Program.cs:33, observed 1 (JwtOptions:SigningKey@src/Host/FSH.Starter.Api/Program.cs:31)"
       ]
     },
     {
@@ -358,17 +335,15 @@
       "labeledDynamicAccesses": 0,
       "dynamicBlockingFindings": 0,
       "precisionProtocolCases": 1,
-      "precisionProtocolTruePositives": 0,
+      "precisionProtocolTruePositives": 1,
       "precisionProtocolPredictions": 1,
       "precisionProtocolControlBlockingFindings": 0,
-      "precisionProtocolFailedCases": 1,
+      "precisionProtocolFailedCases": 0,
       "analyzerMissingKeys": [],
       "labeledMissingKeys": [],
       "falsePositiveKeys": [],
       "missedKeys": [],
-      "precisionProtocolFailures": [
-        "OidcProxy expected one finding at integrationtests/Host.TestApps.OpenIdDict/Program.cs:10, observed 1 (OidcProxy@integrationtests/Host.TestApps.OpenIdDict/Program.cs:9)"
-      ]
+      "precisionProtocolFailures": []
     },
     {
       "id": "razor-pages-ioptions-samples",
@@ -388,17 +363,15 @@
       "labeledDynamicAccesses": 0,
       "dynamicBlockingFindings": 0,
       "precisionProtocolCases": 1,
-      "precisionProtocolTruePositives": 0,
+      "precisionProtocolTruePositives": 1,
       "precisionProtocolPredictions": 1,
       "precisionProtocolControlBlockingFindings": 0,
-      "precisionProtocolFailedCases": 1,
+      "precisionProtocolFailedCases": 0,
       "analyzerMissingKeys": [],
       "labeledMissingKeys": [],
       "falsePositiveKeys": [],
       "missedKeys": [],
-      "precisionProtocolFailures": [
-        "AzureSettings expected one finding at DataAnnotatedValidationApplication/Program.cs:60, observed 1 (AzureSettings@DataAnnotatedValidationApplication/Program.cs:59)"
-      ]
+      "precisionProtocolFailures": []
     }
   ]
 }
