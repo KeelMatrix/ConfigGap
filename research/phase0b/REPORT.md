@@ -4,7 +4,7 @@
 
 Overall verdict: PASS
 
-Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
+Code candidate ref: 969e44601bf97cf2e3f9850ca1354f818bd14da9
 Evidence checkpoint ref: 6c72ce505e8f884077b6dee9b3420e46b84b0c5a
 
 The final structural Phase 0 round closes the corpus path, evidence traceability,
