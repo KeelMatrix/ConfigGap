@@ -145,7 +145,8 @@ public sealed class SemanticProbe
                         continue;
                     }
 
-                    if (!IsConfigurationType(model.GetTypeInfo(elementAccess.Expression, cancellationToken).Type))
+                    var receiverType = model.GetTypeInfo(elementAccess.Expression, cancellationToken).Type;
+                    if (!IsConfigurationType(receiverType))
                     {
                         continue;
                     }
@@ -156,7 +157,12 @@ public sealed class SemanticProbe
                         continue;
                     }
 
-                    foreach (var resolution in ResolveKeys(argument, model, compilation, cancellationToken))
+                    foreach (var resolution in ResolveConfigurationKey(
+                        elementAccess.Expression,
+                        argument,
+                        model,
+                        compilation,
+                        cancellationToken))
                     {
                         observations.Add(CreateObservation(
                             repositoryRoot,
@@ -204,6 +210,12 @@ public sealed class SemanticProbe
                             continue;
                         }
 
+                        if (methodName is "GetSection" or "GetRequiredSection" &&
+                            IsUsedAsConfigurationReceiver(invocation, model, cancellationToken))
+                        {
+                            continue;
+                        }
+
                         var argument = invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
                         if (argument is null)
                         {
@@ -216,7 +228,10 @@ public sealed class SemanticProbe
                             "GetSection" => "section",
                             _ => "required-section"
                         };
-                        foreach (var resolution in ResolveKeys(argument, model, compilation, cancellationToken))
+                        var resolutions = methodName == "GetValue"
+                            ? ResolveConfigurationKey(receiver, argument, model, compilation, cancellationToken)
+                            : ResolveConfigurationPath(invocation, model, compilation, cancellationToken);
+                        foreach (var resolution in resolutions)
                         {
                             observations.Add(CreateObservation(
                                 repositoryRoot,
@@ -475,6 +490,18 @@ public sealed class SemanticProbe
         return propagated.Count == 0 ? [resolution] : propagated;
     }
 
+    private static IReadOnlyList<StringResolution> ResolveConfigurationKey(
+        ExpressionSyntax receiver,
+        ExpressionSyntax key,
+        SemanticModel model,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var prefixes = ResolveSectionPrefix(receiver, model, compilation, cancellationToken);
+        var keys = ResolveKeys(key, model, compilation, cancellationToken);
+        return CombineConfigurationPaths(prefixes, keys);
+    }
+
     private static SyntaxNode GetAccessLocation(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Name : invocation;
 
@@ -545,11 +572,103 @@ public sealed class SemanticProbe
             return [new StringResolution(null, "dynamic-unresolvable")];
         }
 
-        return ResolveKeys(argument, model, compilation, cancellationToken)
-            .Select(resolution => resolution.Value is null
-                ? resolution
-                : new StringResolution(KeyNormalizer.Normalize(resolution.Value), resolution.Kind))
+        var prefixes = ResolveSectionPrefix(receiver, model, compilation, cancellationToken);
+        var keys = ResolveKeys(argument, model, compilation, cancellationToken);
+        return CombineConfigurationPaths(prefixes, keys).ToArray();
+    }
+
+    private static StringResolution[] ResolveSectionPrefix(
+        ExpressionSyntax receiver,
+        SemanticModel model,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var type = model.GetTypeInfo(receiver, cancellationToken).Type;
+        if (type is null || !IsConfigurationType(type))
+        {
+            return [];
+        }
+
+        if (type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfiguration")
+        {
+            return [];
+        }
+
+        if (type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection" &&
+            receiver is not InvocationExpressionSyntax)
+        {
+            return [new StringResolution(null, "dynamic-section-prefix")];
+        }
+
+        if (receiver is InvocationExpressionSyntax invocation &&
+            invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+            memberAccess.Name.Identifier.Text is "GetSection" or "GetRequiredSection")
+        {
+            return ResolveConfigurationPath(invocation, model, compilation, cancellationToken);
+        }
+
+        return [new StringResolution(null, "dynamic-section-prefix")];
+    }
+
+    private static IReadOnlyList<StringResolution> CombineConfigurationPaths(
+        IReadOnlyList<StringResolution> prefixes,
+        IReadOnlyList<StringResolution> keys)
+    {
+        if (prefixes.Count == 0)
+        {
+            return keys;
+        }
+
+        if (keys.Count == 0)
+        {
+            return [new StringResolution(null, "dynamic-relative-key")];
+        }
+
+        var combined = new List<StringResolution>();
+        foreach (var prefix in prefixes)
+        {
+            foreach (var key in keys)
+            {
+                if (prefix.Value is null || key.Value is null)
+                {
+                    combined.Add(new StringResolution(null, "dynamic-relative-key"));
+                    continue;
+                }
+
+                var value = prefix.Value.Length == 0
+                    ? key.Value
+                    : $"{KeyNormalizer.Normalize(prefix.Value)}:{KeyNormalizer.Normalize(key.Value)}";
+                combined.Add(key with { Value = value });
+            }
+        }
+
+        return combined
+            .GroupBy(resolution => resolution.Value ?? "<unknown>", StringComparer.Ordinal)
+            .Select(group => group.First())
             .ToArray();
+    }
+
+    private static bool IsUsedAsConfigurationReceiver(
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (invocation.Parent is ElementAccessExpressionSyntax elementAccess &&
+            elementAccess.Expression == invocation)
+        {
+            return true;
+        }
+
+        if (invocation.Parent is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Expression != invocation ||
+            memberAccess.Parent is not InvocationExpressionSyntax outer)
+        {
+            return false;
+        }
+
+        var symbol = model.GetSymbolInfo(outer, cancellationToken).Symbol as IMethodSymbol;
+        var methodName = symbol?.Name ?? memberAccess.Name.Identifier.Text;
+        return methodName is "GetValue" or "GetSection" or "GetRequiredSection" or "GetChildren" or "Bind";
     }
 
     private static string? GetKnownConsumerName(

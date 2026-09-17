@@ -6,12 +6,18 @@ namespace KeelMatrix.ConfigGap.Core;
 public sealed class ConfigGapToolConfiguration
 {
     public const int CurrentVersion = 1;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+    };
 
     [JsonPropertyName("version")]
-    public int Version { get; init; } = CurrentVersion;
+    [JsonRequired]
+    public int Version { get; init; }
 
     [JsonPropertyName("declarationSurfaces")]
+    [JsonRequired]
     public List<ConfigGapDeclarationSurface> DeclarationSurfaces { get; init; } = [];
 
     [JsonPropertyName("frameworkOwnedPolicy")]
@@ -32,6 +38,11 @@ public sealed class ConfigGapToolConfiguration
             if (!string.Equals(configuration.FrameworkOwnedPolicy, "exclude", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("CONFIGGAP_CONFIG_POLICY: frameworkOwnedPolicy must be 'exclude'.");
+            }
+
+            if (configuration.DeclarationSurfaces is null)
+            {
+                throw new InvalidOperationException("CONFIGGAP_CONFIG_SCHEMA: declarationSurfaces must be an array.");
             }
 
             foreach (var surface in configuration.DeclarationSurfaces)
@@ -71,8 +82,10 @@ public sealed class ConfigGapToolConfiguration
 public sealed class ConfigGapDeclarationSurface
 {
     [JsonPropertyName("kind")]
+    [JsonRequired]
     public string Kind { get; init; } = "json";
 
     [JsonPropertyName("path")]
+    [JsonRequired]
     public string Path { get; init; } = string.Empty;
 }

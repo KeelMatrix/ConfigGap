@@ -79,6 +79,38 @@ public sealed class ConfigurationAnalysisTests
     }
 
     [Fact]
+    public async Task RelativeSectionAccessesComposeTheirSectionPrefix()
+    {
+        var result = await AnalyzeFixtureAsync();
+
+        Assert.Contains("Section:Key", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain("Key", result.Report.ActuallyReadKeys);
+        Assert.Contains("Section:Key", result.Report.RequiredKeys);
+        Assert.DoesNotContain("Key", result.Report.RequiredKeys);
+        Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Key");
+    }
+
+    [Theory]
+    [InlineData("{\"declarationSurfaces\":[]}")]
+    [InlineData("{\"version\":1}")]
+    [InlineData("{\"version\":1,\"declarationSurfaces\":[],\"unexpected\":true}")]
+    public void ToolConfigurationRejectsSchemaInvalidDocuments(string json)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "configgap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, ".configgap.json");
+        try
+        {
+            File.WriteAllText(path, json);
+            Assert.Throws<InvalidOperationException>(() => ConfigGapToolConfiguration.Load(path));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task WorkspaceFailureReturnsExitCodeTwo()
     {
         var result = await ConfigurationAnalysisEngine.AnalyzeAsync(new ConfigGapAnalysisOptions

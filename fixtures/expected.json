@@ -7,6 +7,7 @@
     { "id": "const-key", "source": "fixtures/FixtureConsumer/Patterns/ConstKey.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:ConstKey"] },
     { "id": "configure-options", "source": "fixtures/FixtureConsumer/Patterns/ConfigureOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Configure"] },
     { "id": "custom-extension-wrapper", "source": "fixtures/FixtureSupport/CustomConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Custom:WrappedKey"] },
+    { "id": "cross-project-helper-body", "source": "fixtures/FixtureSupport/CrossProjectConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-computed-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicComputedKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-configuration-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicConfigurationKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-parameter-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicParameterKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
@@ -34,6 +35,9 @@
     { "id": "options-bind", "source": "fixtures/FixtureConsumer/Patterns/OptionsBind.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["Payments"] },
     { "id": "options-builder-impostor", "source": "fixtures/FixtureConsumer/Patterns/OptionsBuilderImpostor.cs", "kind": "options-bind-configuration", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "prefix-access", "source": "fixtures/FixtureConsumer/Patterns/PrefixAccess.cs", "kind": "prefix", "expectedClassification": "declared", "expectedKeys": ["Features"] },
+    { "id": "relative-get-value", "source": "fixtures/FixtureConsumer/Patterns/RelativeGetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "relative-indexer", "source": "fixtures/FixtureConsumer/Patterns/RelativeIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "relative-required-section", "source": "fixtures/FixtureConsumer/Patterns/RelativeRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
     { "id": "same-name-unrelated-helper", "source": "fixtures/FixtureConsumer/Patterns/SameNameUnrelatedHelper.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] }
   ]
 }
