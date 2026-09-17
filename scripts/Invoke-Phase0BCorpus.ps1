@@ -20,8 +20,12 @@ $clonesRoot = Join-Path $scratch 'corpus-clones'
 $preflightPath = Join-Path $scratch 'preflight-failures.json'
 $output = [IO.Path]::GetFullPath($OutputPath)
 $envEvidenceOutput = [IO.Path]::GetFullPath($EnvEvidencePath)
-$shortScratchRootLimit = 80
 $cloneTimeoutSeconds = 600
+$longPathsEnabled = $null
+$configuredGitLongPathsValue = ''
+$effectiveGitLongPathsValue = 'not-applicable'
+$gitCommandPrefix = @()
+$exercisedLongPathMode = 'platform-default'
 
 if ($RestoreTimeoutSeconds -lt 1 -or $CommandTimeoutSeconds -lt 1 -or $OverallTimeoutSeconds -lt 1) {
     throw 'CONFIGGAP_POLICY_INVALID: timeout values must be positive.'
@@ -38,15 +42,22 @@ if ($IsWindows) {
         $gitLongPathsSetting = ''
     }
     $gitLongPathsValues = @($gitLongPathsSetting -split '[\r\n]+' | Where-Object { $_.Trim().Length -gt 0 })
-    $effectiveGitLongPathsValue = if ($gitLongPathsValues.Count -eq 0) { '' } else { $gitLongPathsValues[-1].Trim() }
-    $gitLongPathsEnabled = $effectiveGitLongPathsValue -eq 'true'
-    $usesShortRootFallback = -not $longPathsEnabled -or -not $gitLongPathsEnabled
-    Write-Output ("Windows long-path preflight: OS={0}; Git effective core.longpaths={1}; scratchRootLength={2}; fallbackLimit={3}; mode={4}" -f `
-        $longPathsEnabled, $(if ($effectiveGitLongPathsValue.Length -eq 0) { '<unset>' } else { $effectiveGitLongPathsValue }), $scratch.Length, $shortScratchRootLimit, `
-        $(if ($usesShortRootFallback) { 'short-root-fallback' } else { 'native-long-paths' }))
-    if ($usesShortRootFallback -and $scratch.Length -gt $shortScratchRootLimit) {
-        throw 'CONFIGGAP_LONG_PATH_PREREQUISITE: Windows long paths are unavailable and the effective scratch root is too long. Enable Windows LongPathsEnabled and Git core.longpaths, or provide a validated scratch root whose full path is at most 80 characters.'
+    $configuredGitLongPathsValue = if ($gitLongPathsValues.Count -eq 0) { '' } else { $gitLongPathsValues[-1].Trim() }
+    if ($longPathsEnabled) {
+        $gitCommandPrefix = @('-c', 'core.longpaths=true')
+        $effectiveGitLongPathsValue = 'true'
+        $exercisedLongPathMode = 'script-owned-core.longpaths'
     }
+    else {
+        $effectiveGitLongPathsValue = if ($configuredGitLongPathsValue.Length -eq 0) { '<unset>' } else { $configuredGitLongPathsValue }
+        $exercisedLongPathMode = 'host-configured'
+    }
+    Write-Output ("Windows long-path preflight: OS={0}; LongPathsEnabled={1}; Git configured core.longpaths={2}; effective core.longpaths={3}; scratchRootLength={4}; mode={5}" -f `
+        $true, $longPathsEnabled, $(if ($configuredGitLongPathsValue.Length -eq 0) { '<unset>' } else { $configuredGitLongPathsValue }), $effectiveGitLongPathsValue, $scratch.Length, $exercisedLongPathMode)
+}
+else {
+    Write-Output ("Non-Windows path preflight: LongPathsEnabled={0}; effective core.longpaths={1}; scratchRootLength={2}; mode={3}" -f `
+        '<not-applicable>', $effectiveGitLongPathsValue, $scratch.Length, $exercisedLongPathMode)
 }
 
 $deadline = [DateTime]::UtcNow.AddSeconds($OverallTimeoutSeconds)
@@ -110,6 +121,19 @@ function Invoke-BoundedCommand {
     }
 }
 
+function Invoke-GitCommand {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [string]$WorkingDirectory = $repo
+    )
+
+    $gitArguments = @()
+    $gitArguments += $gitCommandPrefix
+    $gitArguments += $Arguments
+    Invoke-BoundedCommand 'git' $gitArguments $TimeoutSeconds -WorkingDirectory $WorkingDirectory
+}
+
 function Write-CommandOutput {
     param([Parameter(Mandatory = $true)]$Result)
     if ($Result.StandardOutput) {
@@ -129,6 +153,24 @@ function Compact-Error {
     $compact = [regex]::Replace($compact, '(?i)(?<![a-z0-9])/(?:[^\s/]+/)+[^\s]+', '<path>')
     if ($compact.Length -gt 500) { return $compact.Substring(0, 500) }
     return $compact
+}
+
+function Add-PreflightMetrics {
+    if (-not (Test-Path -LiteralPath $output)) {
+        throw "CONFIGGAP_EVIDENCE_METRICS: corpus analysis did not produce metrics at '$output'."
+    }
+
+    $metrics = Get-Content -Raw -LiteralPath $output | ConvertFrom-Json
+    $metrics | Add-Member -NotePropertyName corpusPreflight -NotePropertyValue ([pscustomobject][ordered]@{
+        mode = $exercisedLongPathMode
+        longPathsEnabled = $longPathsEnabled
+        configuredCoreLongpaths = if ($configuredGitLongPathsValue.Length -eq 0) { $null } else { $configuredGitLongPathsValue }
+        effectiveCoreLongpaths = $effectiveGitLongPathsValue
+        scratchRootLength = $scratch.Length
+    }) -Force
+    $metrics | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $output -Encoding utf8
+    Write-Output ("Metrics preflight metadata: mode={0}; effective core.longpaths={1}; LongPathsEnabled={2}; scratchRootLength={3}" -f `
+        $exercisedLongPathMode, $effectiveGitLongPathsValue, $(if ($null -eq $longPathsEnabled) { '<not-applicable>' } else { $longPathsEnabled }), $scratch.Length)
 }
 
 if (Test-Path -LiteralPath $clonesRoot) {
@@ -156,29 +198,29 @@ try {
         }
 
         Write-Output "Preflight cloning $($repository.id) at $($repository.commitSha)"
-        $clone = Invoke-BoundedCommand 'git' @('clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
+        $clone = Invoke-GitCommand @('clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
         Write-CommandOutput $clone
         if ($clone.ExitCode -ne 0) {
             throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: clone failed for $($repository.id) with exit code $($clone.ExitCode)."
         }
 
-        $commitCheck = Invoke-BoundedCommand 'git' @('-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
+        $commitCheck = Invoke-GitCommand @('-C', $target, 'cat-file', '-e', "$($repository.commitSha)^{commit}") 30
         if ($commitCheck.ExitCode -ne 0) {
-            $fetch = Invoke-BoundedCommand 'git' @('-C', $target, 'fetch', '--depth', '1', 'origin', $repository.commitSha) 120
+            $fetch = Invoke-GitCommand @('-C', $target, 'fetch', '--depth', '1', 'origin', $repository.commitSha) 120
             Write-CommandOutput $fetch
-            if ($fetch.ExitCode -ne 0) { throw "Commit fetch failed for $($repository.id) with exit code $($fetch.ExitCode)." }
+            if ($fetch.ExitCode -ne 0) { throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: commit fetch failed for $($repository.id) with exit code $($fetch.ExitCode)." }
         }
 
-        $checkout = Invoke-BoundedCommand 'git' @('-C', $target, 'checkout', '--detach', $repository.commitSha) 60
+        $checkout = Invoke-GitCommand @('-C', $target, 'checkout', '--detach', $repository.commitSha) 60
         Write-CommandOutput $checkout
         if ($checkout.ExitCode -ne 0) { throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: commit checkout failed for $($repository.id) with exit code $($checkout.ExitCode)." }
 
-        $actualSha = (Invoke-BoundedCommand 'git' @('-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
+        $actualSha = (Invoke-GitCommand @('-C', $target, 'rev-parse', 'HEAD') 30).StandardOutput.Trim()
         if ($actualSha -ne $repository.commitSha) {
             throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: commit mismatch for $($repository.id): expected $($repository.commitSha), got $actualSha."
         }
 
-        $status = (Invoke-BoundedCommand 'git' @('-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
+        $status = (Invoke-GitCommand @('-C', $target, 'status', '--porcelain') 30).StandardOutput.Trim()
         if ($status) { throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: fresh clone is not clean for $($repository.id): $status" }
         Write-Output "Clone preflight passed: $($repository.id) at $actualSha"
     }
@@ -262,6 +304,7 @@ try {
     Write-Output ("Restore skipped: {0}" -f [bool]$SkipRestore)
     Write-Output ("Metric command duration: {0} ms" -f $probeClock.ElapsedMilliseconds)
     if ($probe.ExitCode -ne 0) { $probeExitCode = $probe.ExitCode }
+    else { Add-PreflightMetrics }
 }
 finally {
     $clock.Stop()

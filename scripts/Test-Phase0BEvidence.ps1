@@ -33,10 +33,25 @@ function Get-ExactlyOneMatch {
 }
 
 $codeCandidate = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Code candidate ref:\s*([0-9a-f]{40})\s*$' 'CONFIGGAP_EVIDENCE_CANDIDATE' 'Code candidate ref line').Groups[1].Value.ToLowerInvariant()
-[void](Get-ExactlyOneMatch $reportContent '(?im)^\s*Evidence checkpoint ref:\s*HEAD\s*\(resolved by SHA proof below\)\s*$' 'CONFIGGAP_EVIDENCE_CHECKPOINT' 'Evidence checkpoint ref line')
-$parent = (& git -C $repo rev-parse HEAD^ 2>&1).Trim().ToLowerInvariant()
-$commitMessage = (& git -C $repo log -1 --format=%s 2>&1).Trim()
-$changedFiles = @(& git -C $repo diff-tree --no-commit-id --name-only -r HEAD 2>&1 | Where-Object { $_.Trim().Length -gt 0 })
+$evidenceCheckpoint = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Evidence checkpoint ref:\s*([0-9a-f]{40})\s*$' 'CONFIGGAP_EVIDENCE_CHECKPOINT' 'Evidence checkpoint ref line').Groups[1].Value.ToLowerInvariant()
+$resolvedCodeCandidate = (& git -C $repo rev-parse --verify "$codeCandidate^{commit}" 2>&1).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $resolvedCodeCandidate -ne $codeCandidate) {
+    throw "CONFIGGAP_EVIDENCE_CANDIDATE: code candidate ref '$codeCandidate' does not resolve to the named repository commit."
+}
+$resolvedEvidenceCheckpoint = (& git -C $repo rev-parse --verify "$evidenceCheckpoint^{commit}" 2>&1).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $resolvedEvidenceCheckpoint -ne $evidenceCheckpoint) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint ref '$evidenceCheckpoint' does not resolve to the named repository commit."
+}
+$evidenceParent = (& git -C $repo rev-parse --verify "$evidenceCheckpoint^" 2>&1).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $evidenceParent -ne $codeCandidate) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' must be a direct child of code candidate '$codeCandidate'."
+}
+& git -C $repo merge-base --is-ancestor $evidenceCheckpoint $head 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not an ancestor of repository HEAD '$head'."
+}
+$evidenceCommitMessage = (& git -C $repo log -1 --format=%s $evidenceCheckpoint 2>&1).Trim()
+$evidenceChangedFiles = @(& git -C $repo diff-tree --no-commit-id --name-only -r $evidenceCheckpoint 2>&1 | Where-Object { $_.Trim().Length -gt 0 })
 $allowedEvidenceFiles = @(
     'research/phase0b/REPORT.md',
     'research/phase0b/metrics.json',
@@ -44,14 +59,11 @@ $allowedEvidenceFiles = @(
     'research/phase0b/env-prevalence.json',
     'scripts/Test-Phase0BEvidence.ps1'
 )
-$isEvidenceOnlyCheckpoint =
-    $codeCandidate -ceq $parent -and
-    $commitMessage -ceq 'docs: refresh Phase 0B evidence' -and
-    $changedFiles.Count -gt 0 -and
-    @($changedFiles | Where-Object { $allowedEvidenceFiles -notcontains $_.Trim() }).Count -eq 0
 
-if (-not $isEvidenceOnlyCheckpoint -and $codeCandidate -cne $head.ToLowerInvariant()) {
-    throw "CONFIGGAP_EVIDENCE_STALE: code candidate ref '$codeCandidate' differs from HEAD '$head' outside an evidence-only checkpoint."
+if ($evidenceCommitMessage -ne 'docs: refresh Phase 0B evidence' -or
+    $evidenceChangedFiles.Count -eq 0 -or
+    @($evidenceChangedFiles | Where-Object { $allowedEvidenceFiles -notcontains $_.Trim() }).Count -gt 0) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not the expected evidence-only commit."
 }
 
 $metricsPath = Join-Path $repo 'research/phase0b/metrics.json'
@@ -143,11 +155,6 @@ $verdict = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Verdict:\s*(PASS|FAIL)\
 Assert-ReportMetric 'verdict' $verdict $metrics.verdict
 
 Write-Output "Code candidate ref: $codeCandidate"
-Write-Output "Evidence checkpoint ref: HEAD -> $head"
+Write-Output "Evidence checkpoint ref: $evidenceCheckpoint"
 Write-Output "Metrics summary consistency: PASS"
-if ($isEvidenceOnlyCheckpoint) {
-    Write-Output "Evidence candidate consistency: PASS (evidence-only checkpoint; parent $parent)"
-}
-else {
-    Write-Output 'Evidence candidate consistency: PASS'
-}
+Write-Output "Evidence candidate consistency: PASS (evidence checkpoint child of code candidate; HEAD $head)"
