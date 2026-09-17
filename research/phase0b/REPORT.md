@@ -5,7 +5,7 @@
 Overall verdict: PASS
 
 Code candidate ref: c7b0d4b25b8dc3a711778b3518367b04416f0952
-Evidence checkpoint ref: eae79e8bfa71fa20fe76e58f841fdb8076da9dfb
+Evidence checkpoint ref: 080a1187b73958493e0e46597753c54f68315b11
 
 This report records the Roslyn analysis-core evidence for the exact code
 candidate above. It does not claim a product release, package artifact, or
