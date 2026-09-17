@@ -589,13 +589,12 @@ public sealed class SemanticProbe
             return [];
         }
 
-        if (type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfiguration")
+        if (!IsConfigurationSectionType(type))
         {
             return [];
         }
 
-        if (type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection" &&
-            receiver is not InvocationExpressionSyntax)
+        if (receiver is not InvocationExpressionSyntax)
         {
             return [new StringResolution(null, "dynamic-section-prefix")];
         }
@@ -609,6 +608,11 @@ public sealed class SemanticProbe
 
         return [new StringResolution(null, "dynamic-section-prefix")];
     }
+
+    private static bool IsConfigurationSectionType(ITypeSymbol type) =>
+        type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection" ||
+        type.AllInterfaces.Any(interfaceType =>
+            interfaceType.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection");
 
     private static IReadOnlyList<StringResolution> CombineConfigurationPaths(
         IReadOnlyList<StringResolution> prefixes,
