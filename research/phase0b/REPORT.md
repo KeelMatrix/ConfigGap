@@ -5,7 +5,7 @@
 Overall verdict: PASS
 
 Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
-Evidence checkpoint ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
+Evidence checkpoint ref: 6c72ce505e8f884077b6dee9b3420e46b84b0c5a
 
 The final structural Phase 0 round closes the corpus path, evidence traceability,
 performance-evidence, report-consistency, and adversarial-fixture findings.
@@ -160,7 +160,7 @@ The final evidence-checkpoint output is recorded below after the evidence-only
 checkpoint and SHA-proof commits:
 
     Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
-    Evidence checkpoint ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
+    Evidence checkpoint ref: 6c72ce505e8f884077b6dee9b3420e46b84b0c5a
     Metrics summary consistency: PASS
     Evidence candidate consistency: PASS (evidence checkpoint child of code candidate; HEAD recorded after proof commit)
 
