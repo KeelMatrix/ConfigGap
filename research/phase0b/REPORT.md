@@ -4,18 +4,20 @@
 
 Overall verdict: PASS
 
-Code candidate ref: 5adc6c7869d3355cb7a067c1c7330a7abfe5e011
+Code candidate ref: c7b0d4b25b8dc3a711778b3518367b04416f0952
 Evidence checkpoint ref: eae79e8bfa71fa20fe76e58f841fdb8076da9dfb
 
 This report records the Roslyn analysis-core evidence for the exact code
 candidate above. It does not claim a product release, package artifact, or
 production maximum-cardinality proof.
 
-The candidate composes relative `IConfigurationSection` paths for direct and
-bounded local-section aliases across indexers, `GetValue<T>`, and
-`GetRequiredSection`; rejects missing required configuration fields and
-unknown JSON properties; and explicitly freezes bounded helper propagation at
-the same-compilation boundary. Reassigned local sections and cross-project
+The candidate resolves named and positional arguments for supported generic
+`GetValue<T>` calls, preserves template ancestor sections, reports unresolved
+root `GetChildren()` access as informational, and keeps required Options
+binding evidence distinct from ordinary bindable evidence. It composes relative
+`IConfigurationSection` paths for direct and bounded local-section aliases and
+explicitly freezes bounded helper propagation at the same-compilation boundary.
+Reassigned local sections, non-generic `GetValue` overloads, and cross-project
 helper access remain unknown and non-blocking.
 
 ## Corpus results
@@ -51,16 +53,16 @@ Raw output tail:
     Build succeeded.
         0 Warning(s)
         0 Error(s)
-    Time Elapsed: 00:00:01.43
+    Time Elapsed: 00:00:00.93
 
 Focused test command:
 
-    dotnet test tests\KeelMatrix.ConfigGap.Core.Tests\KeelMatrix.ConfigGap.Core.Tests.csproj -c Release --no-restore -p:ManagePackageVersionsCentrally=false
+    dotnet test tests\KeelMatrix.ConfigGap.Core.Tests\KeelMatrix.ConfigGap.Core.Tests.csproj -c Release --no-build --no-restore -p:ManagePackageVersionsCentrally=false -p:NuGetAudit=false
 
 Raw output tail:
 
     A total of 1 test files matched the specified pattern.
-    Passed!  - Failed:     0, Passed:    10, Skipped:     0, Total:    10, Duration: 18 s
+    Passed!  - Failed:     0, Passed:    10, Skipped:     0, Total:    10, Duration: 19 s
 
 Fixture command:
 
@@ -68,24 +70,35 @@ Fixture command:
 
 Raw output tail:
 
-    Patterns: 42/42 passed
+    Patterns: 48/48 passed
     Normalization: 2/2 passed
-    Options sections: 7/7 passed
-    Dynamic/unresolvable: 12 unknown; never classified as missing: True
+    Options sections: 9/9 passed
+    Dynamic/unresolvable: 14 unknown; never classified as missing: True
     Machine-readable report: artifacts\probe-results.json
-    Duration: 6796 ms
+    Duration: 7573 ms
 
-The committed fixture set includes direct relative-section regressions,
-bounded local-section alias regressions for all three relative consumers, a
+The committed fixture set includes named and positional `GetValue<T>` argument
+regressions, template-only Options sections, root `GetChildren()` unknown
+access, required-plus-bindable Options evidence, direct relative-section
+regressions, bounded local-section aliases for all three relative consumers, a
 reassigned-section safety fixture, and the referenced-project helper boundary
 fixture. Configuration tests cover missing `version`, missing
-`declarationSurfaces`, and an unexpected property.
+`declarationSurfaces`, an unexpected property, and sanitized exit-code-2
+recovery text.
+
+Workspace-failure command:
+
+    pwsh -NoProfile -File .\scripts\Test-WorkspaceFailure.ps1 -RepositoryRoot (Get-Location).Path
+
+Raw output tail:
+
+    Workspace failure regression passed: broken compilation failed closed with CONFIGGAP_COMPILATION_LOAD_FAILURE.
 
 ## Corpus command and raw output tail
 
     $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $scratch=Join-Path $env:TEMP "configgap-stage1a-$stamp-corpus"; pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot $scratch -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
 
-    Windows long-path preflight: OS=True; LongPathsEnabled=True; Git configured core.longpaths=<unset>; effective core.longpaths=true; scratchRootLength=116; mode=script-owned-core.longpaths
+    Windows long-path preflight: OS=True; LongPathsEnabled=True; Git configured core.longpaths=<unset>; effective core.longpaths=true; scratchRootLength=94; mode=script-owned-core.longpaths
     Environment template files found: 2; repositories with .env.example: 1/10
     Blocking precision: 29/29 = 100.00% (VERIFIED)
     Precision protocol: 29/29 cases passed; control blocking findings: 0; failed cases: 0
@@ -96,8 +109,8 @@ fixture. Configuration tests cover missing `version`, missing
     Load failures: 0
     Verdict: PASS
     Restore skipped: False
-    Metric command duration: 41222 ms
-    Total corpus command duration: 101438 ms
+    Metric command duration: 43314 ms
+    Total corpus command duration: 105296 ms
     Scratch clones present after cleanup: False
 
 The machine-readable corpus evidence is [`metrics.json`](metrics.json). It
@@ -111,17 +124,17 @@ read.
 
     $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $scratch=Join-Path $env:TEMP "configgap-stage1a-$stamp-performance"; pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot $scratch -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
 
-    Derived expected observation count: 2252 (45 per generated consumer project; 2 shared fixture observations).
-    Guarded run 1: Observations: 2252; Declared surfaces: 50; Duration: 21198 ms; Peak working set: 237490176 bytes
-    Guarded run 2: Observations: 2252; Declared surfaces: 50; Duration: 18817 ms; Peak working set: 234844160 bytes
-    Guarded run 3: Observations: 2252; Declared surfaces: 50; Duration: 21318 ms; Peak working set: 237359104 bytes
-    Derived wall-clock bound: 23300 ms
-    Derived peak working-set bound: 262144000 bytes
+    Derived expected observation count: 2552 (51 per generated consumer project; 2 shared fixture observations).
+    Guarded run 1: Observations: 2552; Declared surfaces: 50; Duration: 21265 ms; Peak working set: 245657600 bytes
+    Guarded run 2: Observations: 2552; Declared surfaces: 50; Duration: 20340 ms; Peak working set: 244576256 bytes
+    Guarded run 3: Observations: 2552; Declared surfaces: 50; Duration: 21198 ms; Peak working set: 237768704 bytes
+    Derived wall-clock bound: 22000 ms
+    Derived peak working-set bound: 270532608 bytes
     Benchmark scratch present after cleanup: False
 
 The machine-readable performance evidence is
-[`performance.json`](performance.json). It records the 42-pattern manifest,
-2,252-observation guard, three guarded runs, and the measured Windows/.NET
+[`performance.json`](performance.json). It records the 48-pattern manifest,
+2,552-observation guard, three guarded runs, and the measured Windows/.NET
 machine description. The bounds are regression bounds for this generated
 input and machine, not portable service-level agreements.
 
