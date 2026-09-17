@@ -12,34 +12,34 @@
       "run": 1,
       "observationCount": 1601,
       "declaredSurfaceCount": 150,
-      "durationMilliseconds": 32851,
-      "peakWorkingSetBytes": 227540992
+      "durationMilliseconds": 23174,
+      "peakWorkingSetBytes": 228990976
     },
     {
       "run": 2,
       "observationCount": 1601,
       "declaredSurfaceCount": 150,
-      "durationMilliseconds": 34192,
-      "peakWorkingSetBytes": 227696640
+      "durationMilliseconds": 20479,
+      "peakWorkingSetBytes": 223051776
     },
     {
       "run": 3,
       "observationCount": 1601,
       "declaredSurfaceCount": 150,
-      "durationMilliseconds": 32716,
-      "peakWorkingSetBytes": 230154240
+      "durationMilliseconds": 22644,
+      "peakWorkingSetBytes": 227319808
     }
   ],
   "variance": {
-    "wallClockMeanMilliseconds": 33253,
-    "wallClockSampleVarianceMillisecondsSquared": 665847,
-    "wallClockSampleStandardDeviationMilliseconds": 816,
-    "maximumWallClockMilliseconds": 34192,
+    "wallClockMeanMilliseconds": 22099,
+    "wallClockSampleVarianceMillisecondsSquared": 2038525,
+    "wallClockSampleStandardDeviationMilliseconds": 1428,
+    "maximumWallClockMilliseconds": 23174,
     "wallClockMargin": "two sample standard deviations, with maximum-observation floor",
-    "derivedWallClockBoundMilliseconds": 34900,
-    "maximumPeakWorkingSetBytes": 230154240,
+    "derivedWallClockBoundMilliseconds": 25000,
+    "maximumPeakWorkingSetBytes": 228990976,
     "peakWorkingSetMargin": "10% above observed maximum",
-    "derivedPeakWorkingSetBoundBytes": 253755392
+    "derivedPeakWorkingSetBoundBytes": 252706816
   },
   "machine": {
     "os": "Microsoft Windows 10.0.19045",
@@ -50,8 +50,8 @@
   },
   "frozenV1Baseline": {
     "scope": "The exact generated 50-project solution, exact observation-count guard, and machine description above.",
-    "wallClockBoundMilliseconds": 34900,
-    "peakWorkingSetBoundBytes": 253755392,
+    "wallClockBoundMilliseconds": 25000,
+    "peakWorkingSetBoundBytes": 252706816,
     "interpretation": "Measured regression bound only; rerun the same protocol after material analyzer changes."
   }
 }

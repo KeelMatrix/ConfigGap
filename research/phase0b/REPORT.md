@@ -4,10 +4,10 @@
 
 Overall verdict: PASS
 
-Code candidate ref: 95a591ee593bc95f1a913e5af91639ebbd05930d
-Evidence checkpoint ref: HEAD (resolved by SHA proof below)
+Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
+Evidence checkpoint ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
 
-The final bounded Phase 0 round closes the helper-location, corpus-preflight,
+The final structural Phase 0 round closes the corpus path, evidence traceability,
 performance-evidence, report-consistency, and adversarial-fixture findings.
 The analyzer remains a non-packable Roslyn feasibility probe; this evidence
 does not claim a product release or package artifact.
@@ -29,15 +29,19 @@ Final clean corpus results:
 - fullstackhero-webapi labels now map the pinned source call sites exactly:
   CachingOptions:Redis at Program.cs:38, JwtOptions:SigningKey at Program.cs:39,
   and DatabaseOptions:ConnectionString at Program.cs:40.
-- Windows fallback preflight validates clone, pinned checkout, and clean status
-  for every real corpus repository before restore or analysis. The final run
-  used the documented short-root fallback with effective
-  core.longpaths=<unset> and no process-local Git configuration injection.
+- Windows preflight validates clone, pinned checkout, and clean status for every
+  real corpus repository before restore or analysis. When `LongPathsEnabled=True`,
+  the script owns Git long-path behavior with `-c core.longpaths=true` for its
+  clone, fetch, checkout, and verification commands. The final run exercised
+  `script-owned-core.longpaths` with configured `core.longpaths=<unset>` and a
+  resolved scratch root length of 77.
 - Performance expectations are derived from the current fixture manifest. The
   committed evidence uses one clean 50-project solution, one restore, and
   three guarded runs.
-- The evidence guard compares report summary fields with metrics.json and
-  verifies the evidence-only checkpoint relationship.
+- The evidence guard requires exact resolvable code-candidate and evidence-
+  checkpoint SHAs, verifies that the evidence checkpoint is an evidence-only
+  child of the code candidate and an ancestor of the checked-out `HEAD`, and
+  compares report summary fields with metrics.json.
 - Committed boundary fixtures cover key-controlled branch/reassignment and a
   same-name helper declared by an unrelated type. Both remain unknown.
 
@@ -46,7 +50,7 @@ Final clean corpus results:
 Commands and raw output tails:
 
     dotnet build .\KeelMatrix.ConfigGap.sln -c Release --no-restore -p:ManagePackageVersionsCentrally=false -p:RunAnalyzers=false
-    Time Elapsed: 00:00:11.22
+    Time Elapsed: 00:00:03.69
     Build succeeded.
         0 Warning(s)
         0 Error(s)
@@ -56,7 +60,7 @@ Commands and raw output tails:
     Normalization: 2/2 passed
     Options sections: 6/6 passed
     Dynamic/unresolvable: 10 unknown; never classified as missing: True
-    Duration: 9810 ms
+    Duration: 9026 ms
     Machine-readable report: artifacts\probe-results.json
 
 The focused fixture run includes 32 generated-project patterns and one shared
@@ -68,15 +72,15 @@ was built because the repository is intentionally non-packable.
 
 Command:
 
-    pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot 'C:\Users\rdime\AppData\Local\Temp\cg585c' -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
+    pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot 'C:\Users\rdime\AppData\Local\Temp\cg-f0f5-root-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
 
-The command ran from 2026-09-17 15:17:34 through 15:25:16 (462.3 s,
-measured from the command runner timestamps). The resolved scratch root was
-40 characters. No unrecorded workaround was used.
+The command completed in 513.602 s according to the script's total-duration
+measurement. The resolved scratch root was 77 characters. `LongPathsEnabled=True`
+and repository `core.longpaths` was unset; no unrecorded workaround was used.
 
 Raw output tail:
 
-    Windows long-path preflight: OS=True; Git effective core.longpaths=<unset>; scratchRootLength=40; fallbackLimit=80; mode=short-root-fallback
+    Windows long-path preflight: OS=True; LongPathsEnabled=True; Git configured core.longpaths=<unset>; effective core.longpaths=true; scratchRootLength=77; mode=script-owned-core.longpaths
     Clone preflight passed: fullstackhero-webapi at 3f2959e683e9f83f13e55e1678c9119f63c7e8e5
     Pinned corpus clone preflight passed for 10 repositories; beginning restore and analysis preparation.
     Environment template files found: 2; repositories with .env.example: 1/10
@@ -90,6 +94,7 @@ Raw output tail:
     Load failures: 0
     Verdict: PASS
     Restore skipped: False
+    Metrics preflight metadata: mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=77
     Scratch clones present after cleanup: False
 
 Per-repository recall and blocking evidence:
@@ -127,16 +132,16 @@ The machine-readable result is research/phase0b/metrics.json. Its summary is:
 
 Command:
 
-    pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot 'C:\Users\rdime\AppData\Local\Temp\cg585p' -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
+    pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot (Join-Path $env:TEMP 'configgap-phase0b-benchmark-kee611') -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
 
 Raw guarded-run output tails:
 
     Derived expected observation count: 1601 (32 per generated consumer project; 1 shared fixture observations).
-    Guarded run 1: Observations: 1601; Declared surfaces: 150; Duration: 32851 ms; Peak working set: 227540992 bytes
-    Guarded run 2: Observations: 1601; Declared surfaces: 150; Duration: 34192 ms; Peak working set: 227696640 bytes
-    Guarded run 3: Observations: 1601; Declared surfaces: 150; Duration: 32716 ms; Peak working set: 230154240 bytes
-    Derived wall-clock bound: 34900 ms
-    Derived peak working-set bound: 253755392 bytes
+    Guarded run 1: Observations: 1601; Declared surfaces: 150; Duration: 23174 ms; Peak working set: 228990976 bytes
+    Guarded run 2: Observations: 1601; Declared surfaces: 150; Duration: 20479 ms; Peak working set: 223051776 bytes
+    Guarded run 3: Observations: 1601; Declared surfaces: 150; Duration: 22644 ms; Peak working set: 227319808 bytes
+    Derived wall-clock bound: 25000 ms
+    Derived peak working-set bound: 252706816 bytes
     Benchmark scratch present after cleanup: False
 
 The evidence is research/phase0b/performance.json. It records the current
@@ -152,12 +157,12 @@ Command:
     pwsh -NoProfile -File .\scripts\Test-Phase0BEvidence.ps1 -RepositoryRoot (Get-Location).Path
 
 The final evidence-checkpoint output is recorded below after the evidence-only
-commit:
+checkpoint and SHA-proof commits:
 
-    Code candidate recorded above: 95a591ee593bc95f1a913e5af91639ebbd05930d
-    Evidence checkpoint output: the final SHA proof below resolves HEAD after push
+    Code candidate ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
+    Evidence checkpoint ref: 63e2d1371a1b51c7bcd168c16edc63a523289a9c
     Metrics summary consistency: PASS
-    Evidence candidate consistency: PASS (evidence-only checkpoint; parent 95a591ee593bc95f1a913e5af91639ebbd05930d)
+    Evidence candidate consistency: PASS (evidence checkpoint child of code candidate; HEAD recorded after proof commit)
 
 ## Precision and boundary evidence
 
@@ -185,8 +190,9 @@ The final proof was run after pushing the evidence checkpoint to main:
     git status --porcelain
     git ls-remote --tags origin
 
-The exact post-push SHA values and the empty status/tag outputs are recorded in
-the completion evidence for this change. All four SHA-producing commands must
-resolve the evidence checkpoint ref; the status and tag commands must produce
-no output. No tag, release, package publication, deployment, visibility
-change, workflow file, or private Actions run was performed.
+The exact post-push SHA values and the empty status/tag outputs are recorded
+with the verification result. The four SHA-producing commands must resolve the
+same final remote `main` HEAD; the named evidence checkpoint is the exact
+evidence commit validated above. The status and tag commands must produce no
+output. No tag, release, package publication, deployment, visibility change,
+workflow file, or private Actions run was performed.

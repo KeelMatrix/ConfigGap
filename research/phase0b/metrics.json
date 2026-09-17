@@ -370,5 +370,12 @@
       "missedKeys": [],
       "precisionProtocolFailures": []
     }
-  ]
+  ],
+  "corpusPreflight": {
+    "mode": "script-owned-core.longpaths",
+    "longPathsEnabled": true,
+    "configuredCoreLongpaths": null,
+    "effectiveCoreLongpaths": "true",
+    "scratchRootLength": 77
+  }
 }
