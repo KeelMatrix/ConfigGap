@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
     <AssemblyName>KeelMatrix.ConfigGap.Probe</AssemblyName>
     <RootNamespace>KeelMatrix.ConfigGap.Probe</RootNamespace>

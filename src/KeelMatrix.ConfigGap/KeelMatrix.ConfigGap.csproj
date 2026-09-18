@@ -5,12 +5,40 @@
     <RootNamespace>KeelMatrix.ConfigGap</RootNamespace>
     <PackageId>KeelMatrix.ConfigGap</PackageId>
     <ToolCommandName>configgap</ToolCommandName>
-    <IsPackable>false</IsPackable>
+    <Version>0.1.0</Version>
+    <PackageVersion>0.1.0</PackageVersion>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <Authors>KeelMatrix</Authors>
+    <Copyright>KeelMatrix</Copyright>
+    <Description>Find gaps between statically used .NET configuration keys and the configuration structure your repository declares.</Description>
+    <PackageTags>configuration;aspnetcore;iconfiguration;options;static-analysis;roslyn;ci;dotnet-tool</PackageTags>
+    <RepositoryUrl>https://github.com/KeelMatrix/ConfigGap</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/KeelMatrix/ConfigGap#readme</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>First public candidate: conservative static analysis for declared .NET configuration usage.</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\KeelMatrix.ConfigGap.Core\KeelMatrix.ConfigGap.Core.csproj" />
     <PackageReference Include="KeelMatrix.Telemetry" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="README.md" Visible="false" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="LICENSE" Visible="false" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

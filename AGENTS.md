@@ -1,41 +1,25 @@
-# ConfigGap Probe Development Guide
+# ConfigGap development guide
 
 ## Navigation
 
-- `src/KeelMatrix.ConfigGap.Core` contains the reusable, non-packable Roslyn/MSBuild analysis core, declaration graph, versioned configuration/report models, and drift classification.
-- `tools/ConfigGap.Probe` contains the thin non-shipping MSBuildWorkspace harness and deterministic Phase 0 corpus report writer.
-- `fixtures/FixtureConsumer` contains the labeled C# access-pattern corpus and declaration files.
-- `fixtures/FixtureSupport` contains the referenced-project extension and Options fixture support.
-- `fixtures/expected.json` contains hand-written expected labels for every pattern.
-- `artifacts/` is disposable probe output and is ignored by Git.
+- `src/KeelMatrix.ConfigGap` contains the shipping `configgap` .NET tool.
+- `src/KeelMatrix.ConfigGap.Core` contains the non-packable Roslyn/MSBuild analysis core.
+- `tests/KeelMatrix.ConfigGap.Tests` contains CLI, report, privacy, and consumer contracts.
+- `tests/KeelMatrix.ConfigGap.Core.Tests` contains focused analysis tests.
+- `tests/FixtureClean` is the ASP.NET Core consumer used by the package smoke.
+- `tools/ConfigGap.Probe` and `fixtures/` contain the labeled analysis corpus.
+- `docs/` contains the configuration and report schemas plus user troubleshooting.
+- `scripts/` contains package inspection, deterministic pack, and isolated consumer checks.
 
 ## Commands
 
-Restore and build the solution:
-
 ```powershell
-dotnet restore KeelMatrix.ConfigGap.sln
+dotnet restore KeelMatrix.ConfigGap.sln --configfile NuGet.config
 dotnet build KeelMatrix.ConfigGap.sln -c Release --no-restore
+dotnet test KeelMatrix.ConfigGap.sln -c Release --no-build --no-restore
+dotnet pack src/KeelMatrix.ConfigGap/KeelMatrix.ConfigGap.csproj -c Release --no-build --no-restore --include-symbols -p:SymbolPackageFormat=snupkg -o artifacts/packages
+pwsh -NoProfile -File .\scripts\Inspect-Package.ps1 -PackagePath .\artifacts\packages\KeelMatrix.ConfigGap.0.1.0.nupkg -SymbolsPath .\artifacts\packages\KeelMatrix.ConfigGap.0.1.0.snupkg
+pwsh -NoProfile -File .\scripts\Invoke-PackageSmoke.ps1 -PackagePath .\artifacts\packages\KeelMatrix.ConfigGap.0.1.0.nupkg
 ```
 
-Run focused core tests:
-
-```powershell
-dotnet test tests/KeelMatrix.ConfigGap.Core.Tests/KeelMatrix.ConfigGap.Core.Tests.csproj -c Release
-```
-
-Run the complete fixture corpus:
-
-```powershell
-dotnet run --project tools/ConfigGap.Probe/ConfigGap.Probe.csproj -c Release --no-build -- --solution KeelMatrix.ConfigGap.sln --repository-root . --output artifacts/probe-results.json
-```
-
-## Invariants
-
-- All projects are non-packable; the core is reusable internal analysis code and the probe is only its regression host.
-- Fixture labels are hand-written and must not be generated from observed output.
-- Supported key resolution is limited to literals, `const` values, static concatenations, and static interpolations.
-- Dynamic or unresolvable keys remain `unknown`; they are never treated as missing.
-- Reports contain keys and classifications only; fixture values and source contents are not emitted.
-- The core report schema is version 1; values are never represented, and source locations are repository-relative.
-- No workflow, telemetry, release, or package behavior belongs in this probe repository.
+Keep package contents limited to the shipping tool, its runtime dependencies, README, license, icon, nuspec metadata, and symbols. Keep all other projects explicitly non-packable.
