@@ -10,6 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="BoundedKeyPropagation.cs;DeclarationGraph.cs;FrameworkOwnedKeys.cs;KeyResolution.cs;ProbeModels.cs;SemanticProbe.cs" />
+    <Compile Remove="BoundedKeyPropagation.cs;DeclarationGraph.cs;FrameworkOwnedKeys.cs;KeyResolution.cs;LocalHelperPropagation.cs;ProbeModels.cs;SemanticProbe.cs" />
   </ItemGroup>
 </Project>

@@ -55,7 +55,7 @@ public sealed class PatternResult
     public string? Failure { get; set; }
 }
 
-internal sealed record SemanticAnalysisResult(
+public sealed record SemanticAnalysisResult(
     IReadOnlyList<ObservedAccess> Observations,
     int ProjectCount,
     int AnalyzedFileCount);

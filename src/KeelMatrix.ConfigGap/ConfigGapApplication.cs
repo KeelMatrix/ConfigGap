@@ -71,7 +71,7 @@ internal static class ConfigGapApplication
                 typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown",
                 TelemetryBuckets.Count(report.ProjectCount),
                 TelemetryBuckets.Count(report.AnalyzedFileCount),
-                TelemetryBuckets.Count(report.Findings.Count(finding => finding.Code == "CG001")),
+                TelemetryBuckets.Count(report.Findings.Count),
                 TelemetryBuckets.Duration(stopwatch.Elapsed),
                 TelemetryBuckets.ExecutionClass());
             try

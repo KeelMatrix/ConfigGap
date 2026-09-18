@@ -154,7 +154,7 @@ public sealed class DeclarationGraph
         }
     }
 
-    private static IReadOnlyList<SurfaceFile> LoadSimpleSurfaceConfiguration(string repositoryRoot, string configurationPath)
+    private static SurfaceFile[] LoadSimpleSurfaceConfiguration(string repositoryRoot, string configurationPath)
     {
         using var document = JsonDocument.Parse(File.ReadAllText(configurationPath), new JsonDocumentOptions
         {
