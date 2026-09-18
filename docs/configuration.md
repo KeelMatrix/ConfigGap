@@ -46,4 +46,4 @@ Framework-owned configuration is excluded from application drift errors. ConfigG
 - Workspace, parsing, selection, and configuration failures return `2`.
 - `0` means a trustworthy analysis completed without a blocking finding.
 
-The report schema is [`configgap-report.schema.json`](configgap-report.schema.json). Reports include key names and locations needed to explain a gap, but never configuration values.
+The CLI report schema is [`configgap-cli-report.schema.json`](configgap-cli-report.schema.json). Reports include key names and locations needed to explain a gap, but never configuration values. The reusable core contract is documented separately in [`analysis-core.md`](analysis-core.md).

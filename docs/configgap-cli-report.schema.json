@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://keelmatrix.dev/configgap/cli-report.schema.json",
+  "title": "KeelMatrix.ConfigGap CLI report",
+  "type": "object",
+  "required": [
+    "version",
+    "tool",
+    "trustworthyAnalysis",
+    "exitCode",
+    "projectCount",
+    "analyzedFileCount",
+    "declarationSurfaces",
+    "findings",
+    "diagnostics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "tool": { "const": "KeelMatrix.ConfigGap" },
+    "trustworthyAnalysis": { "type": "boolean" },
+    "exitCode": { "enum": [0, 1, 2] },
+    "projectCount": { "type": "integer", "minimum": 0 },
+    "analyzedFileCount": { "type": "integer", "minimum": 0 },
+    "declarationSurfaces": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "key", "source", "line", "column", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "enum": ["CG001", "CG900"] },
+          "severity": { "enum": ["error", "info"] },
+          "key": { "type": ["string", "null"] },
+          "source": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "column": { "type": "integer", "minimum": 1 },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}
