@@ -14,7 +14,7 @@
     { "key": "AllowedHosts", "surface": "integrationtests/Host.TestApps.OpenIdDict/appsettings.json" }
   ],
   "accesses": [
-    { "source": "integrationtests/Host.TestApps.OpenIdDict/Program.cs", "line": 10, "kind": "section", "key": "OidcProxy", "supportedStatic": true, "certainty": "high" }
+    { "source": "integrationtests/Host.TestApps.OpenIdDict/Program.cs", "line": 9, "kind": "section", "key": "OidcProxy", "supportedStatic": true, "certainty": "high" }
   ],
   "uncertainties": []
 }

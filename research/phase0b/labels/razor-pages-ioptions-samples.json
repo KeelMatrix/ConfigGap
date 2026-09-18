@@ -26,7 +26,7 @@
     { "key": "AllowedHosts", "surface": "DataAnnotatedValidationApplication/appsettings.json" }
   ],
   "accesses": [
-    { "source": "DataAnnotatedValidationApplication/Program.cs", "line": 60, "kind": "options-bind-configuration", "key": "AzureSettings", "supportedStatic": true, "certainty": "high", "note": "nameof(AzureSettings) resolves to the options section name." }
+    { "source": "DataAnnotatedValidationApplication/Program.cs", "line": 59, "kind": "options-bind-configuration", "key": "AzureSettings", "supportedStatic": true, "certainty": "high", "note": "nameof(AzureSettings) resolves to the options section name." }
   ],
   "uncertainties": []
 }

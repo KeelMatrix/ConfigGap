@@ -5,6 +5,8 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 public sealed class DeclarationGraph
 {
+    private const int MaximumDeclarationSurfaces = 128;
+    private const long MaximumDeclarationFileBytes = 1024 * 1024;
     private readonly Dictionary<string, string> displayKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> leafKeys = new(StringComparer.OrdinalIgnoreCase);
 
@@ -44,28 +46,52 @@ public sealed class DeclarationGraph
     public static DeclarationGraph Load(string repositoryRoot, string? configurationPath = null)
     {
         var root = Path.GetFullPath(repositoryRoot);
-        var configurationFiles = configurationPath is null
-            ? Directory.EnumerateFiles(root, ".configgap.json", SearchOption.AllDirectories)
-                .Where(path => !IsIgnoredPath(path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToArray()
-            : [Path.GetFullPath(configurationPath)];
-
-        var surfaces = configurationFiles.Length == 0
-            ? Directory.EnumerateFiles(root, "appsettings.json", SearchOption.AllDirectories)
-                .Where(path => !IsIgnoredPath(path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .Select(path => new SurfaceFile(path, "json"))
-                .ToArray()
-            : configurationFiles
-                .SelectMany(LoadConfiguredSurfaces)
-                .OrderBy(surface => surface.Path, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-        var graph = new DeclarationGraph(
-            surfaces.Select(surface => ToRepositoryRelative(root, surface.Path)).ToArray());
-        foreach (var surface in surfaces)
+        IReadOnlyList<SurfaceFile> surfaces;
+        if (configurationPath is null)
         {
+            var configurationFiles = EnumerateFiles(root, ".configgap.json")
+                .Where(path => !IsIgnoredPath(path))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            surfaces = configurationFiles.Length == 0
+                ? EnumerateFiles(root, "appsettings.json")
+                    .Where(path => !IsIgnoredPath(path))
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .Select(path => new SurfaceFile(path, "json"))
+                    .ToArray()
+                : configurationFiles.SelectMany(path => LoadConfiguredSurfaces(root, path)).ToArray();
+        }
+        else
+        {
+            var configuredPath = Path.GetFullPath(configurationPath);
+            EnsureInsideRepository(root, configuredPath);
+            if (!File.Exists(configuredPath))
+            {
+                throw new InvalidOperationException(
+                    $"CONFIGGAP_DECLARATION_LOAD_FAILURE: configured file '{ToRepositoryRelative(root, configuredPath)}' does not exist.");
+            }
+
+            EnsureDeclarationFileBounded(configuredPath);
+            surfaces = IsDeclarationSurface(Path.GetFileName(configuredPath))
+                ? [new SurfaceFile(configuredPath, KindForSurface(configuredPath))]
+                : LoadConfiguredSurfaces(root, configuredPath);
+        }
+
+        if (surfaces.Count > MaximumDeclarationSurfaces)
+        {
+            throw new InvalidOperationException(
+                $"CONFIGGAP_DECLARATION_LOAD_FAILURE: more than {MaximumDeclarationSurfaces} declaration surfaces were configured. " +
+                "Use --config to select a bounded set of surfaces.");
+        }
+
+        var orderedSurfaces = surfaces
+            .OrderBy(surface => surface.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var graph = new DeclarationGraph(
+            orderedSurfaces.Select(surface => ToRepositoryRelative(root, surface.Path)).ToArray());
+        foreach (var surface in orderedSurfaces)
+        {
+            EnsureDeclarationFileBounded(surface.Path);
             if (surface.Kind.Equals("template", StringComparison.OrdinalIgnoreCase))
             {
                 graph.AddEnvironmentNames(surface.Path);
@@ -79,23 +105,93 @@ public sealed class DeclarationGraph
         return graph;
     }
 
-    private static IReadOnlyList<SurfaceFile> LoadConfiguredSurfaces(string configurationPath)
+    private static IReadOnlyList<SurfaceFile> LoadConfiguredSurfaces(string repositoryRoot, string configurationPath)
     {
-        var configuration = ConfigGapToolConfiguration.Load(configurationPath);
-        var configurationDirectory = Path.GetDirectoryName(configurationPath)!;
-        var surfaces = new List<SurfaceFile>();
-        foreach (var surface in configuration.DeclarationSurfaces.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase))
+        try
         {
-            var path = Path.GetFullPath(Path.Combine(configurationDirectory, surface.Path));
-            if (!File.Exists(path))
+            var configuration = ConfigGapToolConfiguration.Load(configurationPath);
+            var configurationDirectory = Path.GetDirectoryName(configurationPath)!;
+            var surfaces = new List<SurfaceFile>();
+            foreach (var surface in configuration.DeclarationSurfaces.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"CONFIGGAP_DECLARATION_LOAD_FAILURE: configured declaration surface '{surface.Path}' does not exist.");
+                var path = Path.GetFullPath(Path.Combine(configurationDirectory, surface.Path));
+                EnsureInsideRepository(repositoryRoot, path);
+                if (!File.Exists(path))
+                {
+                    throw new InvalidOperationException(
+                        $"CONFIGGAP_DECLARATION_LOAD_FAILURE: configured declaration surface '{surface.Path}' does not exist.");
+                }
+
+                EnsureDeclarationFileBounded(path);
+                surfaces.Add(new SurfaceFile(path, surface.Kind));
             }
 
-            surfaces.Add(new SurfaceFile(path, surface.Kind));
+            return surfaces;
+        }
+        catch (InvalidOperationException) when (HasSimpleSurfaceArray(configurationPath))
+        {
+            return LoadSimpleSurfaceConfiguration(repositoryRoot, configurationPath);
+        }
+    }
+
+    private static bool HasSimpleSurfaceArray(string path)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+            return document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("declarationSurfaces", out var surfaces) &&
+                surfaces.ValueKind == JsonValueKind.Array &&
+                surfaces.EnumerateArray().All(surface => surface.ValueKind == JsonValueKind.String);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<SurfaceFile> LoadSimpleSurfaceConfiguration(string repositoryRoot, string configurationPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(configurationPath), new JsonDocumentOptions
+        {
+            AllowTrailingCommas = true,
+            CommentHandling = JsonCommentHandling.Skip
+        });
+        if (!document.RootElement.TryGetProperty("version", out var version) ||
+            version.ValueKind != JsonValueKind.Number || version.GetInt32() != ConfigGapToolConfiguration.CurrentVersion ||
+            !document.RootElement.TryGetProperty("declarationSurfaces", out var surfaces) ||
+            surfaces.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidOperationException(
+                "CONFIGGAP_DECLARATION_LOAD_FAILURE: --config must be a version 1 JSON file with a declarationSurfaces array.");
         }
 
-        return surfaces;
+        var result = new List<SurfaceFile>();
+        foreach (var surface in surfaces.EnumerateArray())
+        {
+            if (surface.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(surface.GetString()))
+            {
+                throw new InvalidOperationException(
+                    "CONFIGGAP_DECLARATION_LOAD_FAILURE: every declaration surface must be a non-empty relative path.");
+            }
+
+            var path = Path.GetFullPath(Path.Combine(repositoryRoot, surface.GetString()!));
+            EnsureInsideRepository(repositoryRoot, path);
+            if (!File.Exists(path) || !IsDeclarationSurface(Path.GetFileName(path)))
+            {
+                throw new InvalidOperationException(
+                    $"CONFIGGAP_DECLARATION_LOAD_FAILURE: '{surface.GetString()}' is not an existing supported declaration surface.");
+            }
+
+            EnsureDeclarationFileBounded(path);
+            result.Add(new SurfaceFile(path, KindForSurface(path)));
+        }
+
+        return result.DistinctBy(surface => surface.Path, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private void AddJson(string path)
@@ -206,6 +302,22 @@ public sealed class DeclarationGraph
         }
     }
 
+    private static IEnumerable<string> EnumerateFiles(string root, string pattern) =>
+        Directory.EnumerateFiles(root, pattern, new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        });
+
+    private static bool IsDeclarationSurface(string fileName) =>
+        (fileName.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase) &&
+            fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) ||
+        string.Equals(fileName, ".env.example", StringComparison.OrdinalIgnoreCase);
+
+    private static string KindForSurface(string path) =>
+        Path.GetFileName(path).Equals(".env.example", StringComparison.OrdinalIgnoreCase) ? "template" : "json";
+
     private static bool IsIgnoredPath(string path)
     {
         var segments = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -213,6 +325,28 @@ public sealed class DeclarationGraph
             segment.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
             segment.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
             segment.Equals("artifacts", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void EnsureInsideRepository(string repositoryRoot, string path)
+    {
+        var root = Path.GetFullPath(repositoryRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullPath = Path.GetFullPath(path);
+        var rootWithSeparator = root + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), root, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "CONFIGGAP_DECLARATION_LOAD_FAILURE: configured declaration paths must stay inside the repository.");
+        }
+    }
+
+    private static void EnsureDeclarationFileBounded(string path)
+    {
+        if (new FileInfo(path).Length > MaximumDeclarationFileBytes)
+        {
+            throw new InvalidOperationException(
+                $"CONFIGGAP_DECLARATION_LOAD_FAILURE: declaration surface '{Path.GetFileName(path)}' exceeds the 1 MiB analysis limit.");
+        }
     }
 
     private static string ToRepositoryRelative(string repositoryRoot, string path) =>

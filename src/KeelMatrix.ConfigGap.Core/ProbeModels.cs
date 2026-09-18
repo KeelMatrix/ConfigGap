@@ -55,6 +55,11 @@ public sealed class PatternResult
     public string? Failure { get; set; }
 }
 
+internal sealed record SemanticAnalysisResult(
+    IReadOnlyList<ObservedAccess> Observations,
+    int ProjectCount,
+    int AnalyzedFileCount);
+
 public sealed class ProbeReport
 {
     public int Version { get; set; } = 1;

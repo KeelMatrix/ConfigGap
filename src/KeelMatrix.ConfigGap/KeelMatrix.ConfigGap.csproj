@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>KeelMatrix.ConfigGap</AssemblyName>
+    <RootNamespace>KeelMatrix.ConfigGap</RootNamespace>
+    <PackageId>KeelMatrix.ConfigGap</PackageId>
+    <ToolCommandName>configgap</ToolCommandName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KeelMatrix.ConfigGap.Core\KeelMatrix.ConfigGap.Core.csproj" />
+    <PackageReference Include="KeelMatrix.Telemetry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="KeelMatrix.ConfigGap.Tests" />
+  </ItemGroup>
+</Project>

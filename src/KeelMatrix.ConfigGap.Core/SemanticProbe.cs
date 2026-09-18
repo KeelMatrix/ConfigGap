@@ -9,27 +9,40 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 public sealed class SemanticProbe
 {
-    public static Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
+    public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
         string solutionPath,
         string repositoryRoot,
         CancellationToken cancellationToken = default) =>
-        AnalyzeSolutionAsync(solutionPath, repositoryRoot, repositoryRoot, selectedProjectPath: null, cancellationToken);
+        (await AnalyzeDetailedAsync(solutionPath, repositoryRoot, selectedProjectPath: null, cancellationToken)).Observations;
+
+    public static Task<SemanticAnalysisResult> AnalyzeDetailedAsync(
+        string solutionPath,
+        string repositoryRoot,
+        string? selectedProjectPath = null,
+        CancellationToken cancellationToken = default) =>
+        AnalyzeSolutionAsync(solutionPath, repositoryRoot, repositoryRoot, selectedProjectPath, cancellationToken);
 
     public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeProjectAsync(
         string projectPath,
         string repositoryRoot,
         CancellationToken cancellationToken = default)
+        => (await AnalyzeProjectDetailedAsync(projectPath, repositoryRoot, cancellationToken)).Observations;
+
+    public static async Task<SemanticAnalysisResult> AnalyzeProjectDetailedAsync(
+        string projectPath,
+        string repositoryRoot,
+        CancellationToken cancellationToken = default)
     {
-        var projectDirectory = Path.GetDirectoryName(projectPath) ?? throw new InvalidOperationException("The project path has no directory.");
-        var temporarySolution = Path.Combine(projectDirectory, ".configgap-evaluation.sln");
-        File.WriteAllText(temporarySolution, CreateSingleProjectSolution(Path.GetFileName(projectPath)));
+        var fullProjectPath = Path.GetFullPath(projectPath);
+        var temporarySolution = Path.Combine(Path.GetTempPath(), $"configgap-{Guid.NewGuid():N}.sln");
+        File.WriteAllText(temporarySolution, CreateSingleProjectSolution(fullProjectPath));
         try
         {
             return await AnalyzeSolutionAsync(
                 temporarySolution,
                 repositoryRoot,
                 repositoryRoot,
-                Path.GetFullPath(projectPath),
+                fullProjectPath,
                 cancellationToken);
         }
         finally
@@ -41,7 +54,7 @@ public sealed class SemanticProbe
         }
     }
 
-    private static async Task<IReadOnlyList<ObservedAccess>> AnalyzeSolutionAsync(
+    private static async Task<SemanticAnalysisResult> AnalyzeSolutionAsync(
         string solutionPath,
         string repositoryRoot,
         string msbuildRoot,
@@ -81,11 +94,14 @@ public sealed class SemanticProbe
         ThrowIfWorkspaceFailed(workspaceDiagnostics);
         var selectedProjectFound = selectedProjectPath is null;
         var observations = new List<ObservedAccess>();
+        var projectCount = 0;
+        var analyzedFileCount = 0;
         foreach (var project in solution.Projects
             .Where(project => selectedProjectPath is null ||
                 string.Equals(Path.GetFullPath(project.FilePath ?? string.Empty), selectedProjectPath, StringComparison.OrdinalIgnoreCase))
             .OrderBy(project => project.FilePath, StringComparer.OrdinalIgnoreCase))
         {
+            projectCount++;
             selectedProjectFound = true;
             ThrowIfWorkspaceFailed(workspaceDiagnostics, project.Name);
             Compilation? compilation;
@@ -112,6 +128,8 @@ public sealed class SemanticProbe
                     "Restore the project and verify its SDK, project references, and assets.");
             }
 
+            var localHelperPropagation = new LocalHelperPropagation(compilation);
+
             var compilationErrors = compilation.GetDiagnostics(cancellationToken)
                 .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
                 .Take(5)
@@ -132,6 +150,8 @@ public sealed class SemanticProbe
                     continue;
                 }
 
+                analyzedFileCount++;
+
                 var tree = await document.GetSyntaxTreeAsync(cancellationToken);
                 if (tree is null)
                 {
@@ -142,6 +162,11 @@ public sealed class SemanticProbe
                 var root = await tree.GetRootAsync(cancellationToken);
                 foreach (var elementAccess in root.DescendantNodes().OfType<ElementAccessExpressionSyntax>())
                 {
+                    if (localHelperPropagation.ShouldSkip(elementAccess))
+                    {
+                        continue;
+                    }
+
                     if (IsNestedKeyExpression(elementAccess, model, cancellationToken))
                     {
                         continue;
@@ -177,6 +202,22 @@ public sealed class SemanticProbe
 
                 foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
+                    if (localHelperPropagation.ShouldSkip(invocation))
+                    {
+                        continue;
+                    }
+
+                    if (localHelperPropagation.TryResolveInvocation(invocation, model, out var propagated))
+                    {
+                        observations.Add(CreateObservation(
+                            repositoryRoot,
+                            document.FilePath,
+                            invocation,
+                            propagated.Kind,
+                            propagated.Resolution));
+                        continue;
+                    }
+
                     var symbol = model.GetSymbolInfo(invocation, cancellationToken).Symbol as IMethodSymbol;
                     var methodName = symbol?.Name ??
                         (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text;
@@ -354,7 +395,7 @@ public sealed class SemanticProbe
 
         ThrowIfWorkspaceFailed(workspaceDiagnostics);
 
-        return observations;
+        return new SemanticAnalysisResult(observations, projectCount, analyzedFileCount);
     }
 
     private static void ThrowIfWorkspaceFailed(IReadOnlyList<string> workspaceDiagnostics, string? projectName = null)
