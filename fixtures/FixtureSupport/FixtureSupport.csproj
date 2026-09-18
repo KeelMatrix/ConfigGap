@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <AssemblyName>ConfigGap.FixtureSupport</AssemblyName>
     <RootNamespace>ConfigGap.FixtureSupport</RootNamespace>
   </PropertyGroup>

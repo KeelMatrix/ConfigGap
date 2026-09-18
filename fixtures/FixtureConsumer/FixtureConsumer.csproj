@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <AssemblyName>ConfigGap.FixtureConsumer</AssemblyName>
     <RootNamespace>ConfigGap.FixtureConsumer</RootNamespace>
     <NoWarn>$(NoWarn);CA1050</NoWarn>
