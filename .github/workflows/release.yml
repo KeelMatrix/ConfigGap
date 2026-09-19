@@ -28,7 +28,7 @@ jobs:
       DOTNET_NOLOGO: 'true'
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install the pinned SDK
         uses: actions/setup-dotnet@v4
