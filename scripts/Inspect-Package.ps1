@@ -150,7 +150,7 @@ function Inspect-ToolPackage {
         Assert-Contract ($metadata.license.InnerText -ceq 'LICENSE') 'Package license metadata is missing.'
         Assert-Contract ($metadata.icon -ceq 'icon.png') 'Package icon metadata is missing.'
         Assert-Contract ($metadata.repository.url -ceq 'https://github.com/KeelMatrix/ConfigGap') 'Repository metadata is inconsistent.'
-        Assert-Contract ($metadata.releaseNotes -match 'First public candidate') 'Release notes are missing.'
+        Assert-Contract ($metadata.releaseNotes -ceq 'Static analysis for gaps between declared and statically used .NET configuration.') 'Release notes are inconsistent.'
         Assert-Icon -Bytes (Get-EntryBytes -Archive $archive -Name 'icon.png')
 
         if (-not [string]::IsNullOrWhiteSpace($ExpectedRepositoryCommit)) {

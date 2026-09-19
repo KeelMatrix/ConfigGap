@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using KeelMatrix.ConfigGap.Core;
 
 namespace KeelMatrix.ConfigGap;
@@ -38,7 +37,6 @@ internal static class ConfigGapApplication
             return 0;
         }
 
-        var stopwatch = Stopwatch.StartNew();
         ConfigGapReport report;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(2));
@@ -65,21 +63,13 @@ internal static class ConfigGapApplication
             report = FailureReport(exception);
         }
 
-        stopwatch.Stop();
         Render(report, parsed.Options.Format, output, errorOutput);
 
         if (report.TrustworthyAnalysis)
         {
-            var summary = new TelemetrySummary(
-                typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown",
-                TelemetryBuckets.Count(report.ProjectCount),
-                TelemetryBuckets.Count(report.AnalyzedFileCount),
-                TelemetryBuckets.Count(report.Findings.Count),
-                TelemetryBuckets.Duration(stopwatch.Elapsed),
-                TelemetryBuckets.ExecutionClass());
             try
             {
-                telemetry.RecordSuccessfulAnalysis(summary);
+                telemetry.RecordSuccessfulAnalysis();
             }
             catch
             {

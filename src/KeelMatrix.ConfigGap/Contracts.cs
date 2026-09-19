@@ -60,14 +60,6 @@ internal sealed class ConfigGapDiagnostic
     public string Message { get; init; } = string.Empty;
 }
 
-internal sealed record TelemetrySummary(
-    string ToolVersion,
-    string ProjectCountBucket,
-    string AnalyzedFileCountBucket,
-    string FindingCountBucket,
-    string DurationBucket,
-    string ExecutionClass);
-
 internal static class JsonOptions
 {
     public static readonly JsonSerializerOptions Default = new()

@@ -161,7 +161,7 @@ public sealed class CliContractTests
     }
 
     [Fact]
-    public async Task TelemetryReceivesOnlyCoarseSummaryAfterTrustworthyAnalysis()
+    public async Task TelemetryIsRequestedOnlyAfterTrustworthyAnalysis()
     {
         var telemetry = new RecordingTelemetry();
         var result = await RunAsync(
@@ -169,11 +169,7 @@ public sealed class CliContractTests
             telemetry);
 
         Assert.True(result.ExitCode == 0, result.Error + result.Output);
-        var summary = Assert.Single(telemetry.Summaries);
-        var serialized = JsonSerializer.Serialize(summary);
-        Assert.DoesNotContain("Unlisted:Key", serialized, StringComparison.Ordinal);
-        Assert.DoesNotContain("FixtureConsumer", serialized, StringComparison.Ordinal);
-        Assert.DoesNotContain("appsettings", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, telemetry.Calls);
     }
 
     [Fact]
@@ -221,18 +217,17 @@ public sealed class CliContractTests
 
     private sealed class RecordingTelemetry : IUsageTelemetry
     {
-        public List<TelemetrySummary> Summaries { get; } = [];
+        public int Calls { get; private set; }
 
-        public void RecordSuccessfulAnalysis(TelemetrySummary summary) => Summaries.Add(summary);
+        public void RecordSuccessfulAnalysis() => Calls++;
     }
 
     private sealed class ThrowingTelemetry : IUsageTelemetry
     {
         public int Calls { get; private set; }
 
-        public void RecordSuccessfulAnalysis(TelemetrySummary summary)
+        public void RecordSuccessfulAnalysis()
         {
-            _ = summary;
             Calls++;
             throw new InvalidOperationException("synthetic telemetry failure");
         }

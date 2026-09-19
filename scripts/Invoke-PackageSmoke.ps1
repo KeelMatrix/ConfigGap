@@ -69,16 +69,20 @@ function Assert-JsonCase {
     $dynamic = @($findings | Where-Object { $_.code -eq 'CG900' })
     Assert-Contract (($blocking.Count -gt 0) -eq $ExpectBlocking) "$Name blocking finding assertion failed."
     Assert-Contract (($dynamic.Count -gt 0) -eq $ExpectDynamic) "$Name dynamic finding assertion failed."
+    if ($ExpectBlocking) {
+        Assert-Contract ($result.Output -match 'CG001') "$Name did not include CG001."
+    }
+    else {
+        Assert-Contract ($result.Output -notmatch 'CG001') "$Name unexpectedly included CG001."
+    }
+    if ($ExpectDynamic) {
+        Assert-Contract ($result.Output -match 'CG900') "$Name did not include CG900."
+    }
     return $result
 }
 
 $repo = Split-Path -Parent $PSScriptRoot
 Assert-Contract (Test-Path -LiteralPath $PackagePath -PathType Leaf) "Package was not found: $PackagePath"
-$telemetryCache = Join-Path $env:USERPROFILE '.nuget\packages\keelmatrix.telemetry\0.1.0'
-$telemetryPackage = Get-ChildItem -LiteralPath $telemetryCache -Filter '*.nupkg' -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -notlike '*.symbols.nupkg' -and $_.Name -notlike '*.snupkg' } |
-    Select-Object -First 1
-Assert-Contract ($null -ne $telemetryPackage) 'KeelMatrix.Telemetry 0.1.0 is not available in the local dependency cache.'
 
 $smokeRoot = Join-Path ([IO.Path]::GetTempPath()) "configgap-package-smoke-$([Guid]::NewGuid().ToString('N'))"
 $feed = Join-Path $smokeRoot 'feed'
@@ -92,18 +96,19 @@ $clean = Join-Path $smokeRoot 'clean'
 $missing = Join-Path $smokeRoot 'missing'
 $dynamic = Join-Path $smokeRoot 'dynamic'
 $toolPath = Join-Path $install 'configgap.exe'
+$isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.0'
 $saved = @{}
 
 try {
     New-Item -ItemType Directory -Path $feed, $install, $nugetPackages, $httpCache, $pluginsCache, $dotnetHome -Force | Out-Null
     Copy-Item -LiteralPath (Resolve-Path -LiteralPath $PackagePath).Path -Destination $feed
-    Copy-Item -LiteralPath $telemetryPackage.FullName -Destination $feed
     @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <clear />
     <add key="local" value="$($feed.Replace('&', '&amp;'))" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
   </packageSources>
 </configuration>
 "@ | Set-Content -LiteralPath $nugetConfig -Encoding utf8NoBOM
@@ -118,8 +123,12 @@ try {
     $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
     $env:KEELMATRIX_NO_TELEMETRY = '1'
 
+    Assert-Contract (-not (Test-Path -LiteralPath $isolatedTelemetryCache)) 'The isolated cache unexpectedly contains KeelMatrix.Telemetry before installation.'
     Invoke-Checked -File 'dotnet' -Arguments @('tool', 'install', '--tool-path', $install, '--configfile', $nugetConfig, '--version', $ExpectedVersion, 'KeelMatrix.ConfigGap', '--add-source', $feed, '--ignore-failed-sources', '--no-cache')
     Assert-Contract (Test-Path -LiteralPath $toolPath -PathType Leaf) 'The isolated tool executable was not installed.'
+    $telemetryAssembly = Get-ChildItem -LiteralPath $install -Recurse -Filter 'KeelMatrix.Telemetry.dll' -File | Select-Object -First 1
+    Assert-Contract ($null -ne $telemetryAssembly) 'The installed tool does not contain its declared KeelMatrix.Telemetry runtime dependency.'
+    Write-Output 'Global KeelMatrix.Telemetry cache is not used; install succeeded from the empty isolated cache and controlled sources.'
 
     Copy-Sample -Destination $clean
     Copy-Sample -Destination $missing

@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version in MAJOR.MINOR.PATCH form'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Validate, pack, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      KEELMATRIX_NO_TELEMETRY: '1'
+      DOTNET_NOLOGO: 'true'
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Install the pinned SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.425
+
+      - name: Resolve release version
+        id: release
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:EVENT_NAME -eq 'push') {
+            $tag = $env:REF_NAME
+            if ($tag -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw "Tag must be vMAJOR.MINOR.PATCH: $tag" }
+            $version = $tag.Substring(1)
+          }
+          else {
+            $version = $env:INPUT_VERSION
+            if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw "Dispatch version must be MAJOR.MINOR.PATCH: $version" }
+            $tag = "v$version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Validate release workflow contract
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Validate-ReleaseWorkflow.ps1
+
+      - name: Validate release contract
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Verify-ReleaseContract.ps1 -Version '${{ steps.release.outputs.version }}' -TagName '${{ steps.release.outputs.tag }}' -FirstRelease
+
+      - name: Restore from controlled sources
+        run: dotnet restore KeelMatrix.ConfigGap.sln --configfile NuGet.config --nologo
+
+      - name: Audit direct and transitive vulnerabilities
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Invoke-VulnerabilityAudit.ps1
+
+      - name: Build Release
+        run: dotnet build KeelMatrix.ConfigGap.sln -c Release --no-restore --nologo
+
+      - name: Test Release
+        run: dotnet test KeelMatrix.ConfigGap.sln -c Release --no-build --no-restore --nologo
+
+      - name: Pack the exact release artifacts
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: dotnet pack ./src/KeelMatrix.ConfigGap/KeelMatrix.ConfigGap.csproj -c Release --no-build --no-restore --include-symbols -p:SymbolPackageFormat=snupkg -p:Version=$env:RELEASE_VERSION -p:PackageVersion=$env:RELEASE_VERSION -p:RepositoryCommit=${{ github.sha }} -o ./artifacts/packages --nologo
+
+      - name: Validate package metadata and exact artifact set
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $expected = @("KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg", "KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg") | Sort-Object
+          $actual = @(Get-ChildItem ./artifacts/packages -File | Select-Object -ExpandProperty Name | Sort-Object)
+          if (@(Compare-Object $expected $actual).Count -ne 0) { throw "Unexpected artifact set: $($actual -join ', ')" }
+          pwsh -NoProfile -File ./scripts/Verify-PackageContract.ps1 -PackagePath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg" -SymbolsPath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg" -ExpectedVersion $env:RELEASE_VERSION -ExpectedRepositoryCommit $env:RELEASE_COMMIT
+
+      - name: Exchange OIDC credential with NuGet Trusted Publishing
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: dmitriyzen
+
+      - name: Publish the validated package artifacts
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          dotnet nuget push "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate

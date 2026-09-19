@@ -65,7 +65,7 @@ Exit code `0` means a trustworthy analysis completed without blocking findings. 
 
 ## Privacy and telemetry
 
-Configuration key names may reveal architecture and can be sensitive. Keep reports local and review them before sharing. ConfigGap does not upload source, values, keys, section names, filenames, paths, project names, or report contents. Optional telemetry contains only coarse product/runtime, project/file/finding-count buckets, duration, and local/CI class. Telemetry is best-effort and cannot affect analysis.
+Configuration key names may reveal architecture and can be sensitive. Keep reports local and review them before sharing. ConfigGap does not upload source, values, keys, section names, filenames, paths, project names, or report contents. Optional telemetry uses the shared activation/heartbeat wire contract and sends only its documented event, tool/version, runtime/process-context, week/timestamp, and pseudonymous hash fields. Telemetry is best-effort and cannot affect analysis.
 
 CLI JSON reports also preserve the `knownKeys`, `bindableKeys`, `requiredKeys`, and `actuallyReadKeys` state arrays. The envelope and all CLI finding codes are defined in [`docs/configgap-cli-report.schema.json`](docs/configgap-cli-report.schema.json).
 
@@ -92,7 +92,7 @@ ConfigGap loads projects through `MSBuildWorkspace`. Restore the selected soluti
 - [Configuration and schema](docs/configuration.md)
 - [Troubleshooting and resource limits](docs/troubleshooting.md)
 - [CLI report schema](docs/configgap-cli-report.schema.json)
-- [Product contract](KeelMatrix.ConfigGap.md)
+- [Capabilities and limits](docs/capabilities-and-limits.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 

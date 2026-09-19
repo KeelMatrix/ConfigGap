@@ -4,7 +4,13 @@ ConfigGap analyzes source and declaration structure locally. It does not upload 
 
 ## Optional telemetry
 
-After a complete trustworthy analysis, ConfigGap requests the shared anonymous activation and at-most-weekly heartbeat contract through `KeelMatrix.Telemetry`. The payload contains only product/runtime version, project-count, analyzed-file-count, finding-count, duration, and local/CI buckets. Telemetry is best-effort; failure cannot change analysis or its exit code.
+After a complete trustworthy analysis, ConfigGap requests the shared activation event and at-most-weekly heartbeat through `KeelMatrix.Telemetry`. ConfigGap does not add a custom event or summary payload. The shared wire payload contains only the documented activation/heartbeat fields: event type, tool and tool/telemetry/schema versions, runtime, operating system, CI flag, UTC timestamp or ISO week, and `project_hash`/`installation_hash`.
+
+`project_hash` is a one-way hash of a stable consuming-codebase fingerprint derived locally by the shared package from normalized repository identity or bounded project/solution structure. `installation_hash` is a one-way hash derived locally from a random installation-scoped salt. The raw repository identity, paths, project names, file contents, and salt are not sent; the hashes are pseudonymous correlation identifiers and should not be treated as proof of anonymity.
+
+The shared published API does not accept project/file/finding/duration buckets, so ConfigGap does not emit them.
+
+Telemetry is best-effort; failure cannot change analysis or its exit code.
 
 Set `KEELMATRIX_NO_TELEMETRY=1` for local or CI validation. KeelMatrix development and validation runs are not production usage measurements.
 
