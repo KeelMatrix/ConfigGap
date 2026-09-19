@@ -37,7 +37,7 @@
 
   <ItemGroup>
     <None Update="README.md" Pack="true" PackagePath="README.md" Visible="false" />
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="LICENSE" Visible="false" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\icon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 

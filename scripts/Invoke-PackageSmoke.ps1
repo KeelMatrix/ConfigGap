@@ -46,7 +46,7 @@ function Copy-Sample {
 
 function Restore-Sample {
     param([string]$SampleRoot)
-    Invoke-Checked -File 'dotnet' -Arguments @('restore', (Join-Path $SampleRoot 'FixtureClean.csproj'), '--configfile', $nugetConfig, '--packages', $nugetPackages, '--ignore-failed-sources', '--nologo')
+    [void](Invoke-Checked -File 'dotnet' -Arguments @('restore', (Join-Path $SampleRoot 'FixtureClean.csproj'), '--configfile', $nugetConfig, '--packages', $nugetPackages, '--ignore-failed-sources', '--nologo'))
 }
 
 function Assert-JsonCase {
@@ -59,8 +59,8 @@ function Assert-JsonCase {
     )
     Restore-Sample -SampleRoot $Root
     $result = Invoke-Tool -WorkingDirectory $Root -Arguments @('check', '--project', 'FixtureClean.csproj', '--config', 'configgap.json', '--format', 'json')
-    Write-Output "=== $Name (exit $($result.ExitCode)) ==="
-    Write-Output $result.Output
+    Write-Host "=== $Name (exit $($result.ExitCode)) ==="
+    Write-Host $result.Output
     Assert-Contract ($result.ExitCode -eq $ExpectedExitCode) "$Name returned $($result.ExitCode), expected $ExpectedExitCode."
     $report = $result.Output | ConvertFrom-Json
     Assert-Contract ([bool]$report.trustworthyAnalysis) "$Name did not produce a trustworthy analysis."
@@ -118,7 +118,7 @@ try {
     $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
     $env:KEELMATRIX_NO_TELEMETRY = '1'
 
-    Invoke-Checked -File 'dotnet' -Arguments @('tool', 'install', '--tool-path', $install, '--configfile', $nugetConfig, '--version', $ExpectedVersion, 'KeelMatrix.ConfigGap', '--add-source', $feed, '--ignore-failed-sources', '--no-cache', '--nologo')
+    Invoke-Checked -File 'dotnet' -Arguments @('tool', 'install', '--tool-path', $install, '--configfile', $nugetConfig, '--version', $ExpectedVersion, 'KeelMatrix.ConfigGap', '--add-source', $feed, '--ignore-failed-sources', '--no-cache')
     Assert-Contract (Test-Path -LiteralPath $toolPath -PathType Leaf) 'The isolated tool executable was not installed.'
 
     Copy-Sample -Destination $clean

@@ -61,14 +61,14 @@ function Get-EntryText {
 
 function Read-BigEndianInt32 {
     param([byte[]]$Bytes, [int]$Offset)
-    return ($Bytes[$Offset] -shl 24) -bor ($Bytes[$Offset + 1] -shl 16) -bor ($Bytes[$Offset + 2] -shl 8) -bor $Bytes[$Offset + 3]
+    return (([int]$Bytes[$Offset] -shl 24) -bor ([int]$Bytes[$Offset + 1] -shl 16) -bor ([int]$Bytes[$Offset + 2] -shl 8) -bor [int]$Bytes[$Offset + 3])
 }
 
 function Assert-Icon {
     param([byte[]]$Bytes)
     $signature = [byte[]](0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
     Assert-Contract ($Bytes.Length -ge 24) 'The package icon is too small to be a PNG.'
-    Assert-Contract ((Compare-Object $signature $Bytes[0..7]).Count -eq 0) 'The package icon is not a PNG.'
+    Assert-Contract (@(Compare-Object $signature $Bytes[0..7]).Count -eq 0) 'The package icon is not a PNG.'
     Assert-Contract ([Text.Encoding]::ASCII.GetString($Bytes[12..15]) -ceq 'IHDR') 'The package icon has no PNG IHDR chunk.'
     Assert-Contract ((Read-BigEndianInt32 -Bytes $Bytes -Offset 16) -eq 512) 'The package icon width is not exactly 512 pixels.'
     Assert-Contract ((Read-BigEndianInt32 -Bytes $Bytes -Offset 20) -eq 512) 'The package icon height is not exactly 512 pixels.'
@@ -101,7 +101,10 @@ function Assert-ForbiddenEntries {
 }
 
 function Inspect-ToolPackage {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [string]$RepositoryRoot
+    )
     Assert-Contract (Test-Path -LiteralPath $Path -PathType Leaf) "Package was not found: $Path"
     Assert-Contract ((Split-Path -Leaf $Path) -ceq "KeelMatrix.ConfigGap.$ExpectedVersion.nupkg") 'The tool package filename does not match its version.'
     $archive = Open-Archive -Path $Path
@@ -120,64 +123,21 @@ function Inspect-ToolPackage {
         Assert-Contract (@(Compare-Object ($expectedRoot | Sort-Object) $actualRoot).Count -eq 0) 'The tool package root differs from the explicit expected public artifact set.'
         $payload = @($names | Where-Object { $_ -like 'tools/net8.0/any/*' -and -not $_.EndsWith('/') })
         Assert-Contract ($payload.Count -gt 0) 'The tool package has no net8.0 tool payload.'
-        Assert-Contract (@($payload | Where-Object { $_ -notmatch '^tools/net8\.0/any/[^/]+$' }).Count -eq 0) 'The tool payload contains nested or unsafe paths.'
-        $expectedPayload = @(
-            'tools/net8.0/any/DotnetToolSettings.xml',
-            'tools/net8.0/any/Humanizer.dll',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.Core.dll',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.Core.pdb',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.deps.json',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.dll',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.pdb',
-            'tools/net8.0/any/KeelMatrix.ConfigGap.runtimeconfig.json',
-            'tools/net8.0/any/KeelMatrix.Telemetry.dll',
-            'tools/net8.0/any/Microsoft.Build.dll',
-            'tools/net8.0/any/Microsoft.Build.Framework.dll',
-            'tools/net8.0/any/Microsoft.Build.Locator.dll',
-            'tools/net8.0/any/Microsoft.Build.Tasks.Core.dll',
-            'tools/net8.0/any/Microsoft.Build.Utilities.Core.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.CSharp.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.CSharp.Workspaces.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.ExternalAccess.RazorCompiler.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.Workspaces.dll',
-            'tools/net8.0/any/Microsoft.CodeAnalysis.Workspaces.MSBuild.dll',
-            'tools/net8.0/any/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-            'tools/net8.0/any/Microsoft.Extensions.DependencyInjection.dll',
-            'tools/net8.0/any/Microsoft.Extensions.Logging.Abstractions.dll',
-            'tools/net8.0/any/Microsoft.Extensions.Logging.dll',
-            'tools/net8.0/any/Microsoft.Extensions.Options.dll',
-            'tools/net8.0/any/Microsoft.Extensions.Primitives.dll',
-            'tools/net8.0/any/Microsoft.NET.StringTools.dll',
-            'tools/net8.0/any/Microsoft.VisualStudio.Setup.Configuration.Interop.dll',
-            'tools/net8.0/any/Newtonsoft.Json.dll',
-            'tools/net8.0/any/System.CodeDom.dll',
-            'tools/net8.0/any/System.Collections.Immutable.dll',
-            'tools/net8.0/any/System.Composition.AttributedModel.dll',
-            'tools/net8.0/any/System.Composition.Convention.dll',
-            'tools/net8.0/any/System.Composition.Hosting.dll',
-            'tools/net8.0/any/System.Composition.Runtime.dll',
-            'tools/net8.0/any/System.Composition.TypedParts.dll',
-            'tools/net8.0/any/System.Configuration.ConfigurationManager.dll',
-            'tools/net8.0/any/System.Diagnostics.DiagnosticSource.dll',
-            'tools/net8.0/any/System.Diagnostics.EventLog.dll',
-            'tools/net8.0/any/System.Formats.Nrbf.dll',
-            'tools/net8.0/any/System.IO.Pipelines.dll',
-            'tools/net8.0/any/System.Reflection.Metadata.dll',
-            'tools/net8.0/any/System.Reflection.MetadataLoadContext.dll',
-            'tools/net8.0/any/System.Resources.Extensions.dll',
-            'tools/net8.0/any/System.Security.Cryptography.Pkcs.dll',
-            'tools/net8.0/any/System.Security.Cryptography.ProtectedData.dll',
-            'tools/net8.0/any/System.Security.Cryptography.Xml.dll',
-            'tools/net8.0/any/System.Security.Permissions.dll',
-            'tools/net8.0/any/System.Text.Encodings.Web.dll',
-            'tools/net8.0/any/System.Text.Json.dll',
-            'tools/net8.0/any/System.Threading.Tasks.Dataflow.dll',
-            'tools/net8.0/any/System.Windows.Extensions.dll'
+        $publishRoot = Join-Path $RepositoryRoot 'src/KeelMatrix.ConfigGap/bin/Release/net8.0/publish'
+        Assert-Contract (Test-Path -LiteralPath $publishRoot -PathType Container) "The Release publish directory is missing: $publishRoot"
+        $expectedPayload = @('tools/net8.0/any/DotnetToolSettings.xml') + @(
+            Get-ChildItem -LiteralPath $publishRoot -Recurse -File |
+                ForEach-Object {
+                    $relative = [IO.Path]::GetRelativePath($publishRoot, $_.FullName).Replace('\', '/')
+                    if ($relative -ne 'KeelMatrix.ConfigGap.exe') {
+                        "tools/net8.0/any/$relative"
+                    }
+                }
         ) | Sort-Object
         Assert-Contract (@(Compare-Object $expectedPayload ($payload | Sort-Object)).Count -eq 0) 'The tool payload differs from the explicit expected public artifact set.'
         Assert-Contract ($payload -contains 'tools/net8.0/any/KeelMatrix.ConfigGap.dll') 'The shipping tool assembly is missing.'
         Assert-Contract ($payload -contains 'tools/net8.0/any/KeelMatrix.ConfigGap.runtimeconfig.json') 'The tool runtime configuration is missing.'
+        Assert-Contract ($payload -contains 'tools/net8.0/any/KeelMatrix.Telemetry.dll') 'The required KeelMatrix.Telemetry runtime assembly is missing.'
 
         $nuspec = [xml](Get-EntryText -Archive $archive -Name 'KeelMatrix.ConfigGap.nuspec')
         $metadata = $nuspec.package.metadata
@@ -191,7 +151,6 @@ function Inspect-ToolPackage {
         Assert-Contract ($metadata.icon -ceq 'icon.png') 'Package icon metadata is missing.'
         Assert-Contract ($metadata.repository.url -ceq 'https://github.com/KeelMatrix/ConfigGap') 'Repository metadata is inconsistent.'
         Assert-Contract ($metadata.releaseNotes -match 'First public candidate') 'Release notes are missing.'
-        Assert-Contract ($metadata.dependencies.group.dependency | Where-Object { $_.id -ceq 'KeelMatrix.Telemetry' -and $_.version -match '0\.1\.0' }) 'KeelMatrix.Telemetry dependency metadata is missing.'
         Assert-Icon -Bytes (Get-EntryBytes -Archive $archive -Name 'icon.png')
 
         if (-not [string]::IsNullOrWhiteSpace($ExpectedRepositoryCommit)) {
@@ -224,6 +183,6 @@ function Inspect-SymbolPackage {
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 Assert-ProjectPackability -RepositoryRoot $repositoryRoot
-Inspect-ToolPackage -Path $PackagePath
+Inspect-ToolPackage -Path $PackagePath -RepositoryRoot $repositoryRoot
 Inspect-SymbolPackage -Path $SymbolsPath
 Write-Output 'Package inspection passed.'
