@@ -8,12 +8,14 @@ The extractor uses Roslyn symbols and `MSBuildWorkspace`; it does not scan sourc
 
 Helper propagation is intentionally limited to methods and local functions declared in the compilation being analyzed. A helper declared in a referenced project is not propagated through its consuming call site: its parameterized body remains unknown and no key is inferred from the cross-project call. This is a conservative v1 boundary; use a direct access or a same-compilation helper when the key must be statically verified.
 
-The report keeps these concepts separate:
+The report keeps these concepts separate, and the shipping CLI carries the same arrays without reclassifying observations:
 
 - `knownKeys` — all statically known keys or sections;
 - `bindableKeys` — statically identified Options ownership/binding sections;
 - `requiredKeys` — `GetRequiredSection` evidence, including sections used directly for Options binding;
 - `actuallyReadKeys` — indexer and `GetValue<T>` evidence.
+
+Declared leaf keys that are not covered by an observed key produce `CG002` (`WARNING`). This warning is non-blocking; only `CG001` contributes to exit code `1`. Dynamic or unsupported access remains `CG900` (`INFO`). The CLI envelope and its stable finding codes are defined in [`configgap-cli-report.schema.json`](configgap-cli-report.schema.json).
 
 A writable Options property does not make a key required.
 

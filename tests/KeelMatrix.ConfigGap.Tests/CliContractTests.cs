@@ -27,6 +27,27 @@ public sealed class CliContractTests
     }
 
     [Fact]
+    public async Task CoreFindingClassesAndKeyStateDistinctionsReachTheCliReport()
+    {
+        var result = await RunAsync("check", "--project", ConsumerProject, "--config", DefaultConfig, "--format", "json");
+
+        Assert.Equal(1, result.ExitCode);
+        using var report = JsonDocument.Parse(result.Output);
+        var findings = report.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        Assert.Contains(findings, finding =>
+            finding.GetProperty("code").GetString() == "CG002" &&
+            finding.GetProperty("severity").GetString() == "warning" &&
+            finding.GetProperty("key").GetString() == "Helpers:DepthBound");
+        Assert.Contains(findings, finding =>
+            finding.GetProperty("code").GetString() == "CG002" &&
+            finding.GetProperty("key").GetString() == "Helpers:Reassigned");
+        Assert.Contains("Payments", report.RootElement.GetProperty("bindableKeys").EnumerateArray().Select(key => key.GetString()));
+        Assert.Contains("Section", report.RootElement.GetProperty("requiredKeys").EnumerateArray().Select(key => key.GetString()));
+        Assert.Contains("Section:Key", report.RootElement.GetProperty("actuallyReadKeys").EnumerateArray().Select(key => key.GetString()));
+        Assert.Contains("Section:Key", report.RootElement.GetProperty("knownKeys").EnumerateArray().Select(key => key.GetString()));
+    }
+
+    [Fact]
     public async Task MissingDeclarationProducesBlockingTextDiagnosticAndExitOne()
     {
         var result = await RunAsync("check", "--project", ConsumerProject, "--config", DefaultConfig, "--format", "text");
@@ -61,7 +82,51 @@ public sealed class CliContractTests
         var result = await RunAsync("check", "--format", "yaml");
 
         Assert.Equal(2, result.ExitCode);
+        Assert.Empty(result.Output);
         Assert.Contains("--format must be 'text' or 'json'", result.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData()]
+    [InlineData("--help")]
+    [InlineData("check", "--help")]
+    public async Task EmptyInvocationAndHelpUseStdoutAndExitZero(params string[] args)
+    {
+        var result = await RunAsync(args);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Usage:", result.Output, StringComparison.Ordinal);
+        Assert.Empty(result.Error);
+    }
+
+    [Fact]
+    public async Task MissingOptionValueUsesStderrAndExitTwo()
+    {
+        var result = await RunAsync("check", "--solution");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Empty(result.Output);
+        Assert.Contains("option '--solution' requires a value", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DuplicateOptionUsesStderrAndExitTwo()
+    {
+        var result = await RunAsync("check", "--format", "text", "--format", "json");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Empty(result.Output);
+        Assert.Contains("option '--format' may only be specified once", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SuccessfulTextAnalysisUsesStdoutOnly()
+    {
+        var result = await RunAsync("check", "--project", CleanProject, "--config", CleanConfig);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("ConfigGap check complete.", result.Output, StringComparison.Ordinal);
+        Assert.Empty(result.Error);
     }
 
     [Fact]

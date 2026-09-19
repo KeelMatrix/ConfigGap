@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using KeelMatrix.ConfigGap.Probe;
+using KeelMatrix.ConfigGap.Core;
 
 namespace KeelMatrix.ConfigGap;
 
@@ -45,11 +45,14 @@ internal static class ConfigGapApplication
         try
         {
             var selection = WorkspaceSelector.Resolve(parsed.Options, currentDirectory);
-            var declarations = DeclarationGraph.Load(selection.RepositoryRoot, selection.ConfigPath);
-            var analysis = selection.SolutionPath is not null
-                ? await SemanticProbe.AnalyzeDetailedAsync(selection.SolutionPath, selection.RepositoryRoot, selection.SelectedProjectPath, timeout.Token)
-                : await SemanticProbe.AnalyzeProjectDetailedAsync(selection.SelectedProjectPath!, selection.RepositoryRoot, timeout.Token);
-            report = BuildReport(selection.RepositoryRoot, declarations, analysis);
+            var analysis = await ConfigurationAnalysisEngine.AnalyzeAsync(new ConfigGapAnalysisOptions
+            {
+                RepositoryRoot = selection.RepositoryRoot,
+                SolutionPath = selection.SolutionPath ?? selection.SelectedProjectPath!,
+                SelectedProjectPath = selection.SolutionPath is null ? null : selection.SelectedProjectPath,
+                ConfigurationPath = selection.ConfigPath
+            }, timeout.Token);
+            report = BuildReport(analysis.Report);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
@@ -87,63 +90,38 @@ internal static class ConfigGapApplication
         return report.ExitCode;
     }
 
-    private static ConfigGapReport BuildReport(
-        string repositoryRoot,
-        DeclarationGraph declarations,
-        SemanticAnalysisResult analysis)
+    private static ConfigGapReport BuildReport(KeelMatrix.ConfigGap.Core.ConfigGapReport analysis)
     {
-        var findings = analysis.Observations
-            .Select(observation => CreateFinding(declarations, observation))
-            .Where(finding => finding is not null)
-            .Select(finding => finding!)
-            .OrderBy(finding => finding.Source, StringComparer.Ordinal)
-            .ThenBy(finding => finding.Line)
-            .ThenBy(finding => finding.Column)
-            .ThenBy(finding => finding.Code, StringComparer.Ordinal)
-            .ThenBy(finding => finding.Key, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var blockingCount = findings.Count(finding => finding.Code == "CG001");
+        var findings = analysis.Findings.Select(finding => new ConfigGapFinding
+        {
+            Code = finding.Code,
+            Severity = finding.Severity.ToLowerInvariant(),
+            Key = finding.Key,
+            Source = finding.Source,
+            Line = finding.Line,
+            Column = finding.Column,
+            Message = finding.Message
+        }).ToArray();
 
         return new ConfigGapReport
         {
-            TrustworthyAnalysis = true,
-            ExitCode = blockingCount == 0 ? 0 : 1,
+            TrustworthyAnalysis = analysis.Trustworthy,
+            ExitCode = analysis.ExitCode,
             ProjectCount = analysis.ProjectCount,
             AnalyzedFileCount = analysis.AnalyzedFileCount,
-            DeclarationSurfaces = declarations.Surfaces.OrderBy(path => path, StringComparer.Ordinal).Select(path => Relative(repositoryRoot, path)).ToArray(),
-            Findings = findings
-        };
-    }
-
-    private static ConfigGapFinding? CreateFinding(DeclarationGraph declarations, ObservedAccess observation)
-    {
-        if (observation.Key is null)
-        {
-            return new ConfigGapFinding
-            {
-                Code = "CG900",
-                Severity = "info",
-                Source = observation.Source,
-                Line = observation.Line,
-                Column = observation.Column,
-                Message = "The configuration access cannot be resolved statically. No blocking drift finding was produced."
-            };
-        }
-
-        if (FrameworkOwnedKeys.IsOwned(observation.Key) || declarations.Contains(observation.Key))
-        {
-            return null;
-        }
-
-        return new ConfigGapFinding
-        {
-            Code = "CG001",
-            Severity = "error",
-            Key = observation.Key,
-            Source = observation.Source,
-            Line = observation.Line,
-            Column = observation.Column,
-            Message = "The key is statically used by the application but is absent from the configured declaration surfaces."
+            DeclarationSurfaces = analysis.DeclarationSurfaces.OrderBy(path => path, StringComparer.Ordinal).ToArray(),
+            KnownKeys = analysis.KnownKeys,
+            BindableKeys = analysis.BindableKeys,
+            RequiredKeys = analysis.RequiredKeys,
+            ActuallyReadKeys = analysis.ActuallyReadKeys,
+            Findings = findings,
+            Diagnostics = analysis.Trustworthy
+                ? []
+                : [new ConfigGapDiagnostic
+                {
+                    Code = analysis.FailureCode ?? "CONFIGGAP_ANALYSIS_FAILURE",
+                    Message = analysis.FailureMessage ?? "Analysis failed before a trustworthy report was produced."
+                }]
         };
     }
 
@@ -201,7 +179,9 @@ internal static class ConfigGapApplication
                 output.WriteLine($"Configuration key: {finding.Key}");
             }
 
-            output.WriteLine($"Location: {finding.Source}:{finding.Line}:{finding.Column}");
+            output.WriteLine(finding.Source is null
+                ? "Location: declaration surface"
+                : $"Location: {finding.Source}:{finding.Line}:{finding.Column}");
             output.WriteLine(finding.Message);
         }
 
@@ -212,8 +192,6 @@ internal static class ConfigGapApplication
             : $"{blockingCount} blocking configuration gap(s).");
     }
 
-    private static string Relative(string root, string path) =>
-        Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/');
 }
 
 internal sealed record WorkspaceSelection(

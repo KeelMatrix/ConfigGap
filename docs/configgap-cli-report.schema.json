@@ -11,6 +11,10 @@
     "projectCount",
     "analyzedFileCount",
     "declarationSurfaces",
+    "knownKeys",
+    "bindableKeys",
+    "requiredKeys",
+    "actuallyReadKeys",
     "findings",
     "diagnostics"
   ],
@@ -26,6 +30,10 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "knownKeys": { "type": "array", "items": { "type": "string" } },
+    "bindableKeys": { "type": "array", "items": { "type": "string" } },
+    "requiredKeys": { "type": "array", "items": { "type": "string" } },
+    "actuallyReadKeys": { "type": "array", "items": { "type": "string" } },
     "findings": {
       "type": "array",
       "items": {
@@ -33,12 +41,12 @@
         "required": ["code", "severity", "key", "source", "line", "column", "message"],
         "additionalProperties": false,
         "properties": {
-          "code": { "enum": ["CG001", "CG900"] },
-          "severity": { "enum": ["error", "info"] },
+          "code": { "enum": ["CG001", "CG002", "CG900"] },
+          "severity": { "enum": ["error", "warning", "info"] },
           "key": { "type": ["string", "null"] },
-          "source": { "type": "string" },
-          "line": { "type": "integer", "minimum": 1 },
-          "column": { "type": "integer", "minimum": 1 },
+          "source": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "column": { "type": ["integer", "null"], "minimum": 1 },
           "message": { "type": "string" }
         }
       }

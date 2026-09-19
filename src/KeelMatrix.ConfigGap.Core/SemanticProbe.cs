@@ -9,6 +9,8 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 public sealed class SemanticProbe
 {
+    private static readonly object MsBuildRegistrationGate = new();
+
     public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
         string solutionPath,
         string repositoryRoot,
@@ -479,30 +481,33 @@ public sealed class SemanticProbe
 
     private static void RegisterMsBuild(string repositoryRoot)
     {
-        if (MSBuildLocator.IsRegistered)
+        lock (MsBuildRegistrationGate)
         {
-            return;
-        }
-
-        var globalJsonPath = Path.Combine(repositoryRoot, "global.json");
-        if (File.Exists(globalJsonPath))
-        {
-            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(globalJsonPath));
-            if (document.RootElement.TryGetProperty("sdk", out var sdk) &&
-                sdk.TryGetProperty("version", out var versionElement))
+            if (MSBuildLocator.IsRegistered)
             {
-                var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT") ??
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
-                var sdkPath = Path.Combine(dotnetRoot, "sdk", versionElement.GetString() ?? string.Empty);
-                if (Directory.Exists(sdkPath))
+                return;
+            }
+
+            var globalJsonPath = Path.Combine(repositoryRoot, "global.json");
+            if (File.Exists(globalJsonPath))
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(globalJsonPath));
+                if (document.RootElement.TryGetProperty("sdk", out var sdk) &&
+                    sdk.TryGetProperty("version", out var versionElement))
                 {
-                    MSBuildLocator.RegisterMSBuildPath(sdkPath);
-                    return;
+                    var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT") ??
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
+                    var sdkPath = Path.Combine(dotnetRoot, "sdk", versionElement.GetString() ?? string.Empty);
+                    if (Directory.Exists(sdkPath))
+                    {
+                        MSBuildLocator.RegisterMSBuildPath(sdkPath);
+                        return;
+                    }
                 }
             }
-        }
 
-        MSBuildLocator.RegisterDefaults();
+            MSBuildLocator.RegisterDefaults();
+        }
     }
 
     private static ObservedAccess CreateObservation(

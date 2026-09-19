@@ -33,6 +33,10 @@ internal sealed class ConfigGapReport
     public int ProjectCount { get; init; }
     public int AnalyzedFileCount { get; init; }
     public IReadOnlyList<string> DeclarationSurfaces { get; init; } = [];
+    public IReadOnlyList<string> KnownKeys { get; init; } = [];
+    public IReadOnlyList<string> BindableKeys { get; init; } = [];
+    public IReadOnlyList<string> RequiredKeys { get; init; } = [];
+    public IReadOnlyList<string> ActuallyReadKeys { get; init; } = [];
     public IReadOnlyList<ConfigGapFinding> Findings { get; init; } = [];
     public IReadOnlyList<ConfigGapDiagnostic> Diagnostics { get; init; } = [];
 
@@ -44,9 +48,9 @@ internal sealed class ConfigGapFinding
     public string Code { get; init; } = string.Empty;
     public string Severity { get; init; } = string.Empty;
     public string? Key { get; init; }
-    public string Source { get; init; } = string.Empty;
-    public int Line { get; init; }
-    public int Column { get; init; }
+    public string? Source { get; init; }
+    public int? Line { get; init; }
+    public int? Column { get; init; }
     public string Message { get; init; } = string.Empty;
 }
 

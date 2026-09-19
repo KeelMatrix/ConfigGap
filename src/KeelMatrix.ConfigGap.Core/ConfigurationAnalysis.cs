@@ -17,6 +17,8 @@ public sealed record ConfigGapAnalysisOptions
 
     public required string SolutionPath { get; init; }
 
+    public string? SelectedProjectPath { get; init; }
+
     public string? ConfigurationPath { get; init; }
 }
 
@@ -47,6 +49,10 @@ public sealed class ConfigGapReport
 
     public int ExitCode { get; init; }
 
+    public int ProjectCount { get; init; }
+
+    public int AnalyzedFileCount { get; init; }
+
     public int BlockingFindingCount { get; init; }
 
     public int WarningFindingCount { get; init; }
@@ -66,6 +72,8 @@ public sealed class ConfigGapReport
     public string? FailureCode { get; init; }
 
     public string? FailureMessage { get; init; }
+
+    public IReadOnlyList<string> DeclarationSurfaces { get; init; } = [];
 
     public IReadOnlyList<ConfigGapFinding> Findings { get; init; } = [];
 
@@ -95,9 +103,14 @@ public static class ConfigurationAnalysisEngine
             var repositoryRoot = Path.GetFullPath(options.RepositoryRoot);
             var solutionPath = Path.GetFullPath(options.SolutionPath);
             var declarations = DeclarationGraph.Load(repositoryRoot, options.ConfigurationPath);
-            var observations = solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
-                ? await SemanticProbe.AnalyzeProjectAsync(solutionPath, repositoryRoot, cancellationToken)
-                : await SemanticProbe.AnalyzeAsync(solutionPath, repositoryRoot, cancellationToken);
+            var semantic = solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                ? await SemanticProbe.AnalyzeProjectDetailedAsync(solutionPath, repositoryRoot, cancellationToken)
+                : await SemanticProbe.AnalyzeDetailedAsync(
+                    solutionPath,
+                    repositoryRoot,
+                    options.SelectedProjectPath,
+                    cancellationToken);
+            var observations = semantic.Observations;
 
             var findings = BuildFindings(declarations, observations);
             var ordered = findings
@@ -118,6 +131,8 @@ public static class ConfigurationAnalysisEngine
                 {
                     Trustworthy = true,
                     ExitCode = (int)exitCode,
+                    ProjectCount = semantic.ProjectCount,
+                    AnalyzedFileCount = semantic.AnalyzedFileCount,
                     BlockingFindingCount = blockingCount,
                     WarningFindingCount = warningCount,
                     InformationalFindingCount = infoCount,
@@ -127,6 +142,7 @@ public static class ConfigurationAnalysisEngine
                     RequiredKeys = GetKeys(observations.Where(observation =>
                         observation.Evidence == "required" || observation.IsRequiredBinding)),
                     ActuallyReadKeys = GetKeys(observations.Where(observation => observation.Evidence == "actually-read")),
+                    DeclarationSurfaces = declarations.Surfaces,
                     Findings = ordered
                 }
             };

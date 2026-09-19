@@ -57,6 +57,7 @@ Dynamic or unresolvable access is unknown, not broken. It produces `CG900` infor
 ## Findings and exit codes
 
 - `CG001` / `ERROR`: a statically used application key is absent from the configured declaration surfaces; exit code `1`.
+- `CG002` / `WARNING`: a declared example leaf key was not observed in analyzed code; it never changes a clean exit to `1`.
 - `CG900` / `INFO`: an access could not be resolved statically; it does not change a successful exit to `1`.
 - `CONFIGGAP_*` diagnostics: the workspace or configuration could not be analyzed trustworthily; exit code `2`.
 
@@ -65,6 +66,8 @@ Exit code `0` means a trustworthy analysis completed without blocking findings. 
 ## Privacy and telemetry
 
 Configuration key names may reveal architecture and can be sensitive. Keep reports local and review them before sharing. ConfigGap does not upload source, values, keys, section names, filenames, paths, project names, or report contents. Optional telemetry contains only coarse product/runtime, project/file/finding-count buckets, duration, and local/CI class. Telemetry is best-effort and cannot affect analysis.
+
+CLI JSON reports also preserve the `knownKeys`, `bindableKeys`, `requiredKeys`, and `actuallyReadKeys` state arrays. The envelope and all CLI finding codes are defined in [`docs/configgap-cli-report.schema.json`](docs/configgap-cli-report.schema.json).
 
 Disable telemetry for local or CI validation:
 
