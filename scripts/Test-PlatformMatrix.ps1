@@ -9,11 +9,16 @@ Set-StrictMode -Version Latest
 
 function Get-Tail {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowNull()][AllowEmptyString()][string[]]$Lines,
         [int]$Count = 20
     )
 
-    return (($Lines | Select-Object -Last $Count) -join [Environment]::NewLine)
+    $contentLines = @($Lines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($contentLines.Count -eq 0) {
+        return '<no output>'
+    }
+
+    return (($contentLines | Select-Object -Last $Count) -join [Environment]::NewLine)
 }
 
 function Invoke-CheckedDocker {
