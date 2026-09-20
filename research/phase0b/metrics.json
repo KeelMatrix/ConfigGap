@@ -2,7 +2,7 @@
   "version": 1,
   "status": "BLOCKED",
   "analyzer": "MSBuildWorkspace/Roslyn semantic probe",
-  "candidateRef": "976f1a133bfd5015d9c4f8f640bb9f37e8c7b750",
+  "candidateRef": "1f5f8df692361e23763757f1c685d8d634375e32",
   "corpus": {
     "repositoryCount": 10,
     "analysisStarted": false,
