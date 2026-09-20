@@ -7,7 +7,7 @@ Overall verdict: BLOCKED
 Recorded candidate ref: `HEAD`
 
 Code candidate ref: 976f1a133bfd5015d9c4f8f640bb9f37e8c7b750
-Evidence checkpoint ref: 0ebc2254d3626872052791f057abfdb793ec9f98
+Evidence checkpoint ref: 0ebc2251f025bb043b4c69ff96e027703ede38e3
 
 This report records fresh evidence for the final analyzer source candidate and does not reuse the earlier corpus metrics. The synthetic performance protocol completed. The labeled real-repository corpus did not reach analysis because the first pinned repository tree could not be transferred by Git in this environment. No precision, recall, dynamic-access, or corpus-load result is claimed.
 
