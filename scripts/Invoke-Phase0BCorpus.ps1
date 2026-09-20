@@ -198,7 +198,7 @@ try {
         }
 
         Write-Output "Preflight cloning $($repository.id) at $($repository.commitSha)"
-        $clone = Invoke-GitCommand @('clone', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
+        $clone = Invoke-GitCommand @('clone', '--filter=blob:none', '--depth', '1', '--no-tags', '--no-checkout', $repository.url, $target) $cloneTimeoutSeconds
         Write-CommandOutput $clone
         if ($clone.ExitCode -ne 0) {
             throw "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE: clone failed for $($repository.id) with exit code $($clone.ExitCode)."
