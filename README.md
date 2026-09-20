@@ -12,6 +12,10 @@ dotnet tool install --global KeelMatrix.ConfigGap
 
 The tool targets .NET 8 and exposes the `configgap` command.
 
+## Platform support
+
+Windows has local Release-build and performance evidence for this candidate. Linux is expected but its Docker-based candidate check is unverified in the current environment, and macOS remains unverified locally. See [platform support](docs/platform-support.md) for the matrix, reproducible command, and residual uncertainty.
+
 ## First success
 
 From a repository containing one solution:
