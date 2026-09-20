@@ -24,7 +24,7 @@ $cloneTimeoutSeconds = 600
 $longPathsEnabled = $null
 $configuredGitLongPathsValue = ''
 $effectiveGitLongPathsValue = 'not-applicable'
-$gitCommandPrefix = @()
+$gitCommandPrefix = @('-c', 'http.version=HTTP/1.1')
 $exercisedLongPathMode = 'platform-default'
 
 if ($RestoreTimeoutSeconds -lt 1 -or $CommandTimeoutSeconds -lt 1 -or $OverallTimeoutSeconds -lt 1) {
@@ -44,7 +44,7 @@ if ($IsWindows) {
     $gitLongPathsValues = @($gitLongPathsSetting -split '[\r\n]+' | Where-Object { $_.Trim().Length -gt 0 })
     $configuredGitLongPathsValue = if ($gitLongPathsValues.Count -eq 0) { '' } else { $gitLongPathsValues[-1].Trim() }
     if ($longPathsEnabled) {
-        $gitCommandPrefix = @('-c', 'core.longpaths=true')
+        $gitCommandPrefix += @('-c', 'core.longpaths=true')
         $effectiveGitLongPathsValue = 'true'
         $exercisedLongPathMode = 'script-owned-core.longpaths'
     }
