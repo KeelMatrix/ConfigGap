@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "candidateRef": "976f1a133bfd5015d9c4f8f640bb9f37e8c7b750",
   "method": "Generate one clean deterministic solution from the committed fixture corpus, restore it once, derive the expected observation count from fixtures/expected.json, then run the unchanged analyzer at least three times with an exact observation-count guard on every run.",
   "protocol": "Wall-clock bound is the greater of the observed maximum and mean plus two sample standard deviations, rounded up to the next 100 ms. Working-set bound is the observed maximum plus a 10% measurement margin, rounded up to the next MiB. These are measured regression bounds for this generated input and machine, not portable SLAs.",
   "projectCount": 50,
