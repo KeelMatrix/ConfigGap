@@ -2,155 +2,76 @@
 
 ## Verdict
 
-Overall verdict: PASS
+Overall verdict: BLOCKED
 
-Code candidate ref: c7b0d4b25b8dc3a711778b3518367b04416f0952
-Evidence checkpoint ref: 080a1187b73958493e0e46597753c54f68315b11
+Recorded candidate ref: `HEAD`
 
-This report records the Roslyn analysis-core evidence for the exact code
-candidate above. It does not claim a product release, package artifact, or
-production maximum-cardinality proof.
+Code candidate ref: 80d0d42ea788b72a2a50d58ea0d8de7ef8bb74a6
+Evidence checkpoint ref: d66801236a22b55fc9375c52570ace1b1b3e3b2b
 
-The candidate resolves named and positional arguments for supported generic
-`GetValue<T>` calls, preserves template ancestor sections, reports unresolved
-root `GetChildren()` access as informational, and keeps required Options
-binding evidence distinct from ordinary bindable evidence. It composes relative
-`IConfigurationSection` paths for direct and bounded local-section aliases and
-explicitly freezes bounded helper propagation at the same-compilation boundary.
-Reassigned local sections, non-generic `GetValue` overloads, and cross-project
-helper access remain unknown and non-blocking.
+This report records fresh evidence for the final analyzer source candidate and does not reuse the earlier corpus metrics. The synthetic performance protocol completed. The labeled real-repository corpus did not reach analysis because the first pinned repository tree could not be transferred by Git in this environment. No precision, recall, dynamic-access, or corpus-load result is claimed.
 
-## Corpus results
+## Corpus execution
 
-- 10 pinned repositories analyzed; load failures: 0.
-- Blocking precision: 29/29 = 100.00% (VERIFIED).
-- Supported-domain recall: 29/29 = 100.00%.
-- All-labeled-static-key recall: 29/29 = 100.00%.
-- Observed corpus precision: 7/7 = 100.00%.
-- Dynamic blocking findings: 0.
+- Pinned repositories requested: 10.
+- First repository: `eShopOnWeb` at `4da8212117e87d808d4bbc7da6286fd2147ce606`.
+- Result: `CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE`, Git exit code 128.
+- Raw failure tail: `fatal: unable to access 'https://github.com/dotnet-architecture/eShopOnWeb.git/': Failed to connect to github.com:443 after 21050 ms`.
+- Analysis started: no.
+- Precision, supported-domain recall, all-labeled recall, dynamic blocking, load failures: not measured.
 
-Precision protocol cases: 29
-Precision protocol predictions: 29
-Precision protocol true positives: 29
-Precision protocol control blocking findings: 0
-Precision protocol failed cases: 0
+The harness was retried only after bounded transport fixes: Git HTTP/1.1, blob filtering, and canonical `.git` endpoints. Metadata-only access and a direct partial-clone diagnostic succeeded, but the bounded harness process still failed during the required tree transfer. The machine-readable corpus evidence therefore records `BLOCKED` and intentionally contains no stale corpus percentages.
 
-## Fixture, test, and build evidence
+## Performance evidence
 
-The repository was restored with the local central-package-management
-override required by the surrounding validation workspace. The product
-projects themselves remain unchanged by that validation override.
+The unchanged analyzer ran against a clean generated 50-project solution with 2,802 guarded observations:
 
-Build command:
+| Run | Duration | Peak working set |
+| ---: | ---: | ---: |
+| 1 | 27,472 ms | 246,468,608 bytes |
+| 2 | 23,565 ms | 240,398,336 bytes |
+| 3 | 26,520 ms | 243,007,488 bytes |
 
-    dotnet build KeelMatrix.ConfigGap.sln -c Release --no-restore -p:ManagePackageVersionsCentrally=false -p:NuGetAudit=false
+- Derived wall-clock bound: 30,000 ms.
+- Derived peak working-set bound: 271,581,184 bytes.
+- Environment: Windows 10.0.19045, x64, 16 processors, .NET SDK 8.0.425, PowerShell 7.6.6.
+- The bounds are regression bounds for this generated input and machine, not portable service-level agreements.
 
-Raw output tail:
+Command:
 
-    KeelMatrix.ConfigGap.Core -> ...\src\KeelMatrix.ConfigGap.Core\bin\Release\net8.0\KeelMatrix.ConfigGap.Core.dll
-    ConfigGap.Probe -> ...\tools\ConfigGap.Probe\bin\Release\net8.0\KeelMatrix.ConfigGap.Probe.dll
-    FixtureConsumer -> ...\fixtures\FixtureConsumer\bin\Release\net8.0\ConfigGap.FixtureConsumer.dll
-    Build succeeded.
-        0 Warning(s)
-        0 Error(s)
-    Time Elapsed: 00:00:00.93
+```powershell
+$scratch = Join-Path $env:SCRATCH_DIR 'configgap-phase0b-performance-final-3'
+pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 `
+  -RepositoryRoot (Get-Location).Path `
+  -ScratchRoot $scratch `
+  -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
+```
 
-Focused test command:
+Raw output tails:
 
-    dotnet test tests\KeelMatrix.ConfigGap.Core.Tests\KeelMatrix.ConfigGap.Core.Tests.csproj -c Release --no-build --no-restore -p:ManagePackageVersionsCentrally=false -p:NuGetAudit=false
+```text
+Guarded run 1: Observations: 2802; Duration: 27472 ms; Peak working set: 246468608 bytes
+Guarded run 2: Observations: 2802; Duration: 23565 ms; Peak working set: 240398336 bytes
+Guarded run 3: Observations: 2802; Duration: 26520 ms; Peak working set: 243007488 bytes
+Derived wall-clock bound: 30000 ms
+Derived peak working-set bound: 271581184 bytes
+Benchmark scratch present after cleanup: False
+```
 
-Raw output tail:
+## Cross-platform evidence
 
-    A total of 1 test files matched the specified pattern.
-    Passed!  - Failed:     0, Passed:    10, Skipped:     0, Total:    10, Duration: 19 s
+The reproducible platform harness is [`scripts/Test-PlatformMatrix.ps1`](../../scripts/Test-PlatformMatrix.ps1). It uses the official `mcr.microsoft.com/dotnet/sdk:8.0` image and records the image digest, restore/build/test/pack/consumer-smoke durations, and raw tails. It has not run in CI.
 
-Fixture command:
+The local Docker check returned:
 
-    dotnet run --project tools\ConfigGap.Probe\ConfigGap.Probe.csproj -c Release --no-build -- --solution KeelMatrix.ConfigGap.sln --repository-root . --output artifacts\probe-results.json
+```text
+failed to connect to the docker API at npipe:////./pipe/docker_engine; check if the path is correct: open //./pipe/docker_engine: The system cannot find the file specified.
+```
 
-Raw output tail:
+Linux candidate evidence is therefore unverified. macOS remains expected only when documented MSBuild/Roslyn workspace loading works and is unverified locally.
 
-    Patterns: 48/48 passed
-    Normalization: 2/2 passed
-    Options sections: 9/9 passed
-    Dynamic/unresolvable: 14 unknown; never classified as missing: True
-    Machine-readable report: artifacts\probe-results.json
-    Duration: 7573 ms
+## Evidence guard state
 
-The committed fixture set includes named and positional `GetValue<T>` argument
-regressions, template-only Options sections, root `GetChildren()` unknown
-access, required-plus-bindable Options evidence, direct relative-section
-regressions, bounded local-section aliases for all three relative consumers, a
-reassigned-section safety fixture, and the referenced-project helper boundary
-fixture. Configuration tests cover missing `version`, missing
-`declarationSurfaces`, an unexpected property, and sanitized exit-code-2
-recovery text.
+`Test-ReportCandidateRef.ps1` is expected to pass after this report-anchor commit resolves `Recorded candidate ref: HEAD` to the checked-out commit. `Test-Phase0BEvidence.ps1` remains expected to fail closed because the required fresh corpus summary was not produced; this is the intended blocker signal, not a threshold or label adjustment.
 
-Workspace-failure command:
-
-    pwsh -NoProfile -File .\scripts\Test-WorkspaceFailure.ps1 -RepositoryRoot (Get-Location).Path
-
-Raw output tail:
-
-    Workspace failure regression passed: broken compilation failed closed with CONFIGGAP_COMPILATION_LOAD_FAILURE.
-
-## Corpus command and raw output tail
-
-    $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $scratch=Join-Path $env:TEMP "configgap-stage1a-$stamp-corpus"; pwsh -NoProfile -File .\scripts\Invoke-Phase0BCorpus.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot $scratch -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/metrics.json') -EnvEvidencePath (Join-Path (Get-Location).Path 'research/phase0b/env-prevalence.json')
-
-    Windows long-path preflight: OS=True; LongPathsEnabled=True; Git configured core.longpaths=<unset>; effective core.longpaths=true; scratchRootLength=94; mode=script-owned-core.longpaths
-    Environment template files found: 2; repositories with .env.example: 1/10
-    Blocking precision: 29/29 = 100.00% (VERIFIED)
-    Precision protocol: 29/29 cases passed; control blocking findings: 0; failed cases: 0
-    Observed corpus precision: 7/7 = 100.00%
-    Supported-domain recall: 29/29 = 100.00%
-    All-labeled-static-key recall: 29/29 = 100.00%
-    Dynamic blocking findings: 0
-    Load failures: 0
-    Verdict: PASS
-    Restore skipped: False
-    Metric command duration: 43314 ms
-    Total corpus command duration: 105296 ms
-    Scratch clones present after cleanup: False
-
-The machine-readable corpus evidence is [`metrics.json`](metrics.json). It
-contains 10 pinned repositories, 29 supported-domain keys, 7 observed
-blocking-precision cases, zero dynamic blocking findings, and zero load
-failures. The file-name-only template inventory is
-[`env-prevalence.json`](env-prevalence.json); actual `.env` contents were not
-read.
-
-## Performance command and raw output tails
-
-    $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $scratch=Join-Path $env:TEMP "configgap-stage1a-$stamp-performance"; pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 -RepositoryRoot (Get-Location).Path -ScratchRoot $scratch -OutputPath (Join-Path (Get-Location).Path 'research/phase0b/performance.json')
-
-    Derived expected observation count: 2552 (51 per generated consumer project; 2 shared fixture observations).
-    Guarded run 1: Observations: 2552; Declared surfaces: 50; Duration: 21265 ms; Peak working set: 245657600 bytes
-    Guarded run 2: Observations: 2552; Declared surfaces: 50; Duration: 20340 ms; Peak working set: 244576256 bytes
-    Guarded run 3: Observations: 2552; Declared surfaces: 50; Duration: 21198 ms; Peak working set: 237768704 bytes
-    Derived wall-clock bound: 22000 ms
-    Derived peak working-set bound: 270532608 bytes
-    Benchmark scratch present after cleanup: False
-
-The machine-readable performance evidence is
-[`performance.json`](performance.json). It records the 48-pattern manifest,
-2,552-observation guard, three guarded runs, and the measured Windows/.NET
-machine description. The bounds are regression bounds for this generated
-input and machine, not portable service-level agreements.
-
-## Evidence consistency and SHA proof
-
-The evidence guard requires the evidence checkpoint to be a direct evidence-
-only child of the code candidate and requires the checked-out report anchor to
-be the direct child of that evidence checkpoint. This prevents later code
-changes from silently reusing an older corpus or performance result.
-
-The final SHA proof is recorded after the report-anchor commit:
-
-    git rev-parse HEAD
-    git rev-parse origin/main
-    git ls-remote origin refs/heads/main
-    git status --porcelain
-
-No package, tag, release, deployment, visibility change, workflow file, or
-private CI run was performed. The analysis projects remain non-packable.
+No package, tag, release, deployment, visibility change, workflow run, or private CI run was performed.
