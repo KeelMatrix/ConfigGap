@@ -83,7 +83,7 @@ try {
         '--project-count', $ProjectCount.ToString([Globalization.CultureInfo]::InvariantCulture)))
 
     Write-Output 'Restoring the generated solution once before guarded measurements.'
-    [void](Invoke-Dotnet @('restore', (Join-Path $synthetic 'ConfigGap.Synthetic.sln'), '--nologo', '--verbosity', 'quiet', '-p:NuGetAudit=false'))
+    [void](Invoke-Dotnet @('restore', (Join-Path $synthetic 'ConfigGap.Synthetic.sln'), '--nologo', '--verbosity', 'quiet', '--ignore-failed-sources', '-p:NuGetAudit=false'))
 
     $runs = [System.Collections.Generic.List[object]]::new()
     for ($run = 1; $run -le $RunCount; $run++) {
