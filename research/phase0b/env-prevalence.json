@@ -1,10 +1,21 @@
 {
   "version": 1,
-  "candidateRef": "1f5f8df692361e23763757f1c685d8d634375e32",
-  "status": "BLOCKED",
+  "method": "Enumerate repository-wide file names only at each pinned commit; do not read .env or template contents. Classify selected application membership by the directory of the labeled project.",
   "repositoryCount": 10,
-  "fileNameInventoryProduced": false,
-  "failureCode": "CONFIGGAP_CORPUS_CLONE_PREFLIGHT_FAILURE",
-  "failureRepository": "eShopOnWeb",
-  "failure": "The pinned corpus tree could not be cloned, so the file-name-only environment-template inventory was not produced."
+  "envExampleRepositoryCount": 1,
+  "templateFileCount": 2,
+  "files": [
+    {
+      "repositoryId": "clean-architecture-jason-taylor",
+      "path": "src/Web/ClientApp-React/.env",
+      "kind": "actual-env-excluded",
+      "belongsToSelectedApplicationDeclarationPolicy": true
+    },
+    {
+      "repositoryId": "fullstackhero-webapi",
+      "path": "deploy/docker/.env.example",
+      "kind": ".env.example",
+      "belongsToSelectedApplicationDeclarationPolicy": false
+    }
+  ]
 }
