@@ -95,7 +95,8 @@ $nugetConfig = Join-Path $smokeRoot 'NuGet.config'
 $clean = Join-Path $smokeRoot 'clean'
 $missing = Join-Path $smokeRoot 'missing'
 $dynamic = Join-Path $smokeRoot 'dynamic'
-$toolPath = Join-Path $install 'configgap.exe'
+$toolExecutable = if ([OperatingSystem]::IsWindows()) { 'configgap.exe' } else { 'configgap' }
+$toolPath = Join-Path $install $toolExecutable
 $isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.0'
 $saved = @{}
 
@@ -126,7 +127,7 @@ try {
     Assert-Contract (-not (Test-Path -LiteralPath $isolatedTelemetryCache)) 'The isolated cache unexpectedly contains KeelMatrix.Telemetry before installation.'
     Invoke-Checked -File 'dotnet' -Arguments @('tool', 'install', '--tool-path', $install, '--configfile', $nugetConfig, '--version', $ExpectedVersion, 'KeelMatrix.ConfigGap', '--add-source', $feed, '--ignore-failed-sources', '--no-cache')
     Assert-Contract (Test-Path -LiteralPath $toolPath -PathType Leaf) 'The isolated tool executable was not installed.'
-    $telemetryAssembly = Get-ChildItem -LiteralPath $install -Recurse -Filter 'KeelMatrix.Telemetry.dll' -File | Select-Object -First 1
+    $telemetryAssembly = Get-ChildItem -LiteralPath $install -Recurse -Force -Filter 'KeelMatrix.Telemetry.dll' -File | Select-Object -First 1
     Assert-Contract ($null -ne $telemetryAssembly) 'The installed tool does not contain its declared KeelMatrix.Telemetry runtime dependency.'
     Write-Output 'Global KeelMatrix.Telemetry cache is not used; install succeeded from the empty isolated cache and controlled sources.'
 

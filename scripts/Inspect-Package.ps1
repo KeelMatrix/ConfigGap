@@ -79,7 +79,10 @@ function Assert-ProjectPackability {
     param([string]$RepositoryRoot)
     $projects = @(Get-ChildItem -LiteralPath $RepositoryRoot -Recurse -Filter '*.csproj' -File |
         Where-Object { $_.FullName -notmatch '[\\/]bin[\\/]|[\\/]obj[\\/]' })
-    $shipping = @($projects | Where-Object { $_.FullName -like '*\src\KeelMatrix.ConfigGap\KeelMatrix.ConfigGap.csproj' })
+    $shipping = @($projects | Where-Object {
+        $relativePath = [IO.Path]::GetRelativePath($RepositoryRoot, $_.FullName).Replace('\', '/')
+        $relativePath -ceq 'src/KeelMatrix.ConfigGap/KeelMatrix.ConfigGap.csproj'
+    })
     Assert-Contract ($shipping.Count -eq 1) 'The shipping project is not uniquely identified.'
     $shippingText = Get-Content -Raw -LiteralPath $shipping[0].FullName
     Assert-Contract ($shippingText -match '<IsPackable>true</IsPackable>') 'The shipping project must be packable.'
@@ -129,7 +132,7 @@ function Inspect-ToolPackage {
             Get-ChildItem -LiteralPath $publishRoot -Recurse -File |
                 ForEach-Object {
                     $relative = [IO.Path]::GetRelativePath($publishRoot, $_.FullName).Replace('\', '/')
-                    if ($relative -ne 'KeelMatrix.ConfigGap.exe') {
+                    if ($relative -notin @('KeelMatrix.ConfigGap.exe', 'KeelMatrix.ConfigGap')) {
                         "tools/net8.0/any/$relative"
                     }
                 }
