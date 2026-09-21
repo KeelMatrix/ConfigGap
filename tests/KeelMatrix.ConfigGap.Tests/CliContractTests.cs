@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using KeelMatrix.ConfigGap;
 using Xunit;
@@ -184,6 +185,21 @@ public sealed class CliContractTests
         Assert.Equal(1, throwingTelemetry.Calls);
     }
 
+    [Fact]
+    public async Task ConcurrentCliAnalysesRemainTrustworthy()
+    {
+        var results = await Task.WhenAll(
+            RunChildAnalysisAsync(useWholeSolution: true),
+            RunChildAnalysisAsync(useWholeSolution: false));
+
+        Assert.All(results, result =>
+        {
+            Assert.Equal(1, result.ExitCode);
+            using var report = JsonDocument.Parse(result.Output);
+            Assert.True(report.RootElement.GetProperty("trustworthyAnalysis").GetBoolean(), result.Error);
+        });
+    }
+
     private static async Task<RunResult> RunAsync(params string[] args) => await RunAsync(RepositoryRoot, args, new RecordingTelemetry());
 
     private static async Task<RunResult> RunAsync(string[] args, IUsageTelemetry telemetry) => await RunAsync(RepositoryRoot, args, telemetry);
@@ -194,6 +210,46 @@ public sealed class CliContractTests
         var error = new StringWriter(System.Globalization.CultureInfo.InvariantCulture);
         var exitCode = await ConfigGapApplication.RunAsync(args, currentDirectory, telemetry, output, error);
         return new RunResult(exitCode, output.ToString(), error.ToString());
+    }
+
+    private static async Task<ChildRunResult> RunChildAnalysisAsync(bool useWholeSolution)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            WorkingDirectory = RepositoryRoot,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add(typeof(ConfigGapApplication).Assembly.Location);
+        startInfo.ArgumentList.Add("check");
+        startInfo.ArgumentList.Add(useWholeSolution ? "--solution" : "--project");
+        startInfo.ArgumentList.Add(useWholeSolution ? "KeelMatrix.ConfigGap.sln" : ConsumerProject);
+        if (!useWholeSolution)
+        {
+            startInfo.ArgumentList.Add("--config");
+            startInfo.ArgumentList.Add(DefaultConfig);
+        }
+        startInfo.ArgumentList.Add("--format");
+        startInfo.ArgumentList.Add("json");
+        using var process = Process.Start(startInfo) ??
+            throw new InvalidOperationException("Could not start the child ConfigGap process.");
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException("The concurrent ConfigGap child analysis exceeded 60 seconds.");
+        }
+
+        return new ChildRunResult(process.ExitCode, await outputTask, await errorTask);
     }
 
 
@@ -214,6 +270,8 @@ public sealed class CliContractTests
     }
 
     private sealed record RunResult(int ExitCode, string Output, string Error);
+
+    private sealed record ChildRunResult(int ExitCode, string Output, string Error);
 
     private sealed class RecordingTelemetry : IUsageTelemetry
     {

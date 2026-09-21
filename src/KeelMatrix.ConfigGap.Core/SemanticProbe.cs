@@ -63,6 +63,7 @@ public sealed class SemanticProbe
         string? selectedProjectPath,
         CancellationToken cancellationToken)
     {
+        using var workspaceGate = await WorkspaceProcessGate.AcquireAsync(repositoryRoot, cancellationToken);
         RegisterMsBuild(msbuildRoot);
 
         var workspaceDiagnostics = new List<string>();
