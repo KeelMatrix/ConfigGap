@@ -6,12 +6,12 @@ The checked-in performance protocol generates one clean 50-project solution from
 
 The fresh Windows measurement used 51 project fixture patterns, 2 shared fixture patterns, and 2,802 guarded observations on each run:
 
-- durations: 27,472 ms, 23,565 ms, and 26,520 ms;
-- peak working sets: 246,468,608 bytes, 240,398,336 bytes, and 243,007,488 bytes;
-- derived bound: 30,000 ms wall clock and 271,581,184 bytes peak working set;
+- durations: 25,294 ms, 21,134 ms, and 21,804 ms;
+- peak working sets: 241,889,280 bytes, 245,456,896 bytes, and 242,364,416 bytes;
+- derived bound: 27,300 ms wall clock and 270,532,608 bytes peak working set;
 - environment: Windows 10.0.19045, x64, 16 processors, .NET SDK 8.0.425, PowerShell 7.6.6.
 
-The machine-readable result is [`research/phase0b/performance.json`](../research/phase0b/performance.json). Linux and macOS measurements are not available for this candidate; the platform matrix and reproducible Docker check are documented in [`platform-support.md`](platform-support.md). The Docker check has not run in CI.
+The machine-readable result is [`research/phase0b/performance.json`](../research/phase0b/performance.json). The separate Linux platform matrix passed the final candidate's build, full tests, package, and consumer smoke; it was not a performance-bound measurement. macOS remains unverified. The Docker check has not run in CI.
 
 ## Reproduce
 
