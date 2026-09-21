@@ -348,7 +348,9 @@ public sealed class SemanticProbe
                                 observations.Add(CreateObservation(
                                     repositoryRoot,
                                     document.FilePath,
-                                    GetAccessLocation(invocation),
+                                    invocation.Expression is MemberAccessExpressionSyntax memberAccess
+                                        ? memberAccess.Name
+                                        : invocation,
                                     "options-bind",
                                     new StringResolution(resolution.Value, resolution.Kind),
                                     isRequiredBinding: IsRequiredSectionInvocation(section)));
@@ -607,8 +609,7 @@ public sealed class SemanticProbe
         return CombineConfigurationPaths(prefixes, keys);
     }
 
-    private static SyntaxNode GetAccessLocation(InvocationExpressionSyntax invocation) =>
-        invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Name : invocation;
+    private static InvocationExpressionSyntax GetAccessLocation(InvocationExpressionSyntax invocation) => invocation;
 
     private static bool IsConfigurationType(ITypeSymbol? type)
     {

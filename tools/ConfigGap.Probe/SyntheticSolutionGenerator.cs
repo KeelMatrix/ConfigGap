@@ -23,6 +23,7 @@ internal static class SyntheticSolutionGenerator
 
         Directory.CreateDirectory(outputDirectory);
         File.WriteAllText(Path.Combine(outputDirectory, "Directory.Build.props"), "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><Deterministic>true</Deterministic><DeterministicSourcePaths>false</DeterministicSourcePaths><IsPackable>false</IsPackable></PropertyGroup></Project>" + Environment.NewLine);
+        File.WriteAllText(Path.Combine(outputDirectory, "Directory.Packages.props"), "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally><CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled></PropertyGroup><ItemGroup><PackageVersion Include=\"Microsoft.Extensions.Configuration.Abstractions\" Version=\"8.0.0\" /><PackageVersion Include=\"Microsoft.Extensions.Configuration.Binder\" Version=\"8.0.2\" /><PackageVersion Include=\"Microsoft.Extensions.Options.ConfigurationExtensions\" Version=\"8.0.0\" /></ItemGroup></Project>" + Environment.NewLine);
         File.Copy(Path.Combine(repositoryRoot, "global.json"), Path.Combine(outputDirectory, "global.json"), overwrite: true);
         CopyFixtureSupport(supportRoot, Path.Combine(outputDirectory, "FixtureSupport"));
         for (var index = 1; index <= projectCount; index++)
@@ -66,7 +67,7 @@ internal static class SyntheticSolutionGenerator
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(segment => segment is "bin" or "obj");
 
-    private static string CreateProjectFile(string projectName) => $@"<Project Sdk=""Microsoft.NET.Sdk"">{CRLF}  <PropertyGroup>{CRLF}    <AssemblyName>ConfigGap.Synthetic.{projectName}</AssemblyName>{CRLF}    <RootNamespace>ConfigGap.Synthetic.{projectName}</RootNamespace>{CRLF}  </PropertyGroup>{CRLF}{CRLF}  <ItemGroup>{CRLF}    <PackageReference Include=""Microsoft.Extensions.Configuration.Abstractions"" Version=""8.0.0"" />{CRLF}    <PackageReference Include=""Microsoft.Extensions.Configuration.Binder"" Version=""8.0.2"" />{CRLF}    <PackageReference Include=""Microsoft.Extensions.Options.ConfigurationExtensions"" Version=""8.0.0"" />{CRLF}  </ItemGroup>{CRLF}{CRLF}  <ItemGroup>{CRLF}    <ProjectReference Include=""..\FixtureSupport\FixtureSupport.csproj"" />{CRLF}  </ItemGroup>{CRLF}</Project>{CRLF}";
+    private static string CreateProjectFile(string projectName) => $@"<Project Sdk=""Microsoft.NET.Sdk"">{CRLF}  <PropertyGroup>{CRLF}    <AssemblyName>ConfigGap.Synthetic.{projectName}</AssemblyName>{CRLF}    <RootNamespace>ConfigGap.Synthetic.{projectName}</RootNamespace>{CRLF}  </PropertyGroup>{CRLF}{CRLF}  <ItemGroup>{CRLF}    <PackageReference Include=""Microsoft.Extensions.Configuration.Abstractions"" />{CRLF}    <PackageReference Include=""Microsoft.Extensions.Configuration.Binder"" />{CRLF}    <PackageReference Include=""Microsoft.Extensions.Options.ConfigurationExtensions"" />{CRLF}  </ItemGroup>{CRLF}{CRLF}  <ItemGroup>{CRLF}    <ProjectReference Include=""..\FixtureSupport\FixtureSupport.csproj"" />{CRLF}  </ItemGroup>{CRLF}</Project>{CRLF}";
 
     private const string CRLF = "\r\n";
 

@@ -58,19 +58,22 @@ $containerScript = @'
 set -euo pipefail
 
 run_step() {
-  name="$1"
+  step_name="$1"
   shift
-  log="/tmp/configgap-platform-${name}.log"
+  log="/tmp/configgap-platform-${step_name}.log"
   start_ms=$(date +%s%3N)
   set +e
-  "$@" >"$log" 2>&1
-  status=$?
+  if "$@" >"$log" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
   set -e
   end_ms=$(date +%s%3N)
-  echo "STEP name=${name} exit=${status} duration_ms=$((end_ms - start_ms))"
-  echo "RAW_TAIL_BEGIN name=${name}"
+  echo "STEP name=${step_name} exit=${status} duration_ms=$((end_ms - start_ms))"
+  echo "RAW_TAIL_BEGIN name=${step_name}"
   tail -n 20 "$log"
-  echo "RAW_TAIL_END name=${name}"
+  echo "RAW_TAIL_END name=${step_name}"
   return "$status"
 }
 
@@ -79,8 +82,9 @@ consumer_smoke() {
   package_root=/tmp/configgap-platform-pack
   tool_root="$smoke_root/tool"
   feed_config="$smoke_root/NuGet.config"
-  rm -rf "$smoke_root" "$package_root"
-  mkdir -p "$smoke_root" "$package_root"
+  rm -rf "$smoke_root"
+  mkdir -p "$smoke_root"
+  test -f "$package_root/KeelMatrix.ConfigGap.0.1.0.nupkg"
 
   cat >"$feed_config" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -114,16 +118,16 @@ EOF
   }
 
   run_case() {
-    name="$1"
+    case_name="$1"
     root="$2"
     expected_exit="$3"
     expected_code="$4"
     set +e
-    "$tool_root/configgap" check --project "$root/FixtureClean.csproj" --config "$root/configgap.json" --format json >"$smoke_root/${name}.json" 2>&1
+    "$tool_root/configgap" check --project "$root/FixtureClean.csproj" --config "$root/configgap.json" --format json >"$smoke_root/${case_name}.json" 2>&1
     actual_exit=$?
     set -e
     test "$actual_exit" -eq "$expected_exit"
-    grep -q "$expected_code" "$smoke_root/${name}.json"
+    grep -q "$expected_code" "$smoke_root/${case_name}.json"
   }
 
   clean_root="$smoke_root/clean"
