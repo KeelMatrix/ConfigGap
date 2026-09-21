@@ -4,7 +4,7 @@
 
 Overall verdict: PASS
 
-Recorded candidate ref: `1506f58f1631381f2630637952f6293a6881937f`
+Recorded candidate ref: `3f36d134fe6c4f756439024431b6a68a11972538`
 
 Code candidate ref: 8e1a95392638415e5fc965eaa7fd3d371ddc6650
 Evidence checkpoint ref: b684be3e452dff6acdc9ce4dacc3fa78b7be13ea
