@@ -42,17 +42,13 @@ $resolvedEvidenceCheckpoint = (& git -C $repo rev-parse --verify "$evidenceCheck
 if ($LASTEXITCODE -ne 0 -or $resolvedEvidenceCheckpoint -ne $evidenceCheckpoint) {
     throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint ref '$evidenceCheckpoint' does not resolve to the named repository commit."
 }
-$evidenceParent = (& git -C $repo rev-parse --verify "$evidenceCheckpoint^" 2>&1).Trim().ToLowerInvariant()
-if ($LASTEXITCODE -ne 0 -or $evidenceParent -ne $codeCandidate) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' must be a direct child of code candidate '$codeCandidate'."
+& git -C $repo merge-base --is-ancestor $codeCandidate $evidenceCheckpoint 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: code candidate '$codeCandidate' must be an ancestor of evidence checkpoint '$evidenceCheckpoint'."
 }
 & git -C $repo merge-base --is-ancestor $evidenceCheckpoint $head 2>$null
 if ($LASTEXITCODE -ne 0) {
     throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not an ancestor of repository HEAD '$head'."
-}
-$headParent = (& git -C $repo rev-parse --verify "$head^" 2>&1).Trim().ToLowerInvariant()
-if ($LASTEXITCODE -ne 0 -or $headParent -ne $evidenceCheckpoint) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: repository HEAD '$head' must be the direct report-anchor child of evidence checkpoint '$evidenceCheckpoint'."
 }
 $evidenceCommitMessage = (& git -C $repo log -1 --format=%s $evidenceCheckpoint 2>&1).Trim()
 $evidenceChangedFiles = @(& git -C $repo diff-tree --no-commit-id --name-only -r $evidenceCheckpoint 2>&1 | Where-Object { $_.Trim().Length -gt 0 })

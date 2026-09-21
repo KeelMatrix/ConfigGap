@@ -4,10 +4,10 @@
 
 Overall verdict: PASS
 
-Recorded candidate ref: `HEAD`
+Recorded candidate ref: `1506f58f1631381f2630637952f6293a6881937f`
 
-Code candidate ref: 581611aa3b930ba0599e9fe44c7dd5f8cf68daee
-Evidence checkpoint ref: f89af6200dfa30f1b1df545ce13f825de4bd78bc
+Code candidate ref: 8e1a95392638415e5fc965eaa7fd3d371ddc6650
+Evidence checkpoint ref: b684be3e452dff6acdc9ce4dacc3fa78b7be13ea
 
 This report records fresh evidence against the final analyzer candidate. The corpus, synthetic performance protocol, and candidate-specific Linux matrix were run after the analyzer location-semantics fix. Labels and thresholds were not changed to improve a result.
 
@@ -105,12 +105,12 @@ Linux matrix results:
 | release-pack | 0 | 6,724 ms |
 | consumer-smoke | 0 | 9,980 ms |
 
-Raw tails included zero-warning/zero-error Release build, 10 passing core tests and 18 passing CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. The check has not run in GitHub Actions; the repository workflow remains tag/manual-release only.
+Raw tails included zero-warning/zero-error Release build, 10 passing core tests and 18 passing CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. Hosted CI run [35596419966](https://github.com/KeelMatrix/ConfigGap/actions/runs/35596419966), triggered by `push`, subsequently passed all three OS legs. The workflow is not tag/manual-only; macOS passed in that hosted run but was not locally verified.
 
 Windows evidence for this candidate includes the three-run performance protocol and the targeted 10/10 core test rerun. macOS remains expected only when documented MSBuild/Roslyn workspace loading works and is not independently verified here.
 
 ## Evidence guard state
 
-`Test-Phase0BEvidence.ps1` and `Test-ReportCandidateRef.ps1` are run against the report-anchor commit after this document is committed. Both must pass at the exact candidate ref before publication consideration.
+`Test-Phase0BEvidence.ps1` verifies the exact public code/evidence refs, their ancestry, the evidence-only checkpoint shape, and the report metrics. `Test-ReportCandidateRef.ps1` verifies that the frozen candidate resolves to an exact public commit that is an ancestor of the current checkout; later CI, package-inspection, and documentation commits do not move the frozen candidate.
 
 No package publication, tag, release, deployment, visibility change, workflow run, or private CI run was performed.

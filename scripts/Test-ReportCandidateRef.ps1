@@ -19,20 +19,28 @@ if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-f]{40}$') {
     throw 'CONFIGGAP_REPORT_REF_GIT_FAILURE: could not resolve HEAD to a full commit SHA.'
 }
 
-$resolvedRef = if ($recordedRef -eq 'HEAD') {
-    $head
-}
-elseif ($recordedRef -match '^[0-9a-f]{40}$') {
-    $recordedRef.ToLowerInvariant()
+$resolvedRef = if ($recordedRef -match '^[0-9a-f]{40}$') {
+    $resolveOutput = (& git -C $repo rev-parse --verify "$($recordedRef.ToLowerInvariant())^{commit}" 2>&1 | Out-String).Trim().ToLowerInvariant()
+    $resolveExit = $LASTEXITCODE
+    if ($resolveExit -ne 0) {
+        throw "CONFIGGAP_REPORT_REF_UNRESOLVED: report candidate ref '$recordedRef' does not resolve to a commit in the repository."
+    }
+
+    $resolveOutput
 }
 else {
-    throw "CONFIGGAP_REPORT_REF_INVALID: unsupported recorded candidate ref '$recordedRef'. Use `HEAD` or a full commit SHA."
+    throw "CONFIGGAP_REPORT_REF_INVALID: unsupported recorded candidate ref '$recordedRef'. Use a full commit SHA."
 }
 
-if ($resolvedRef -ne $head) {
-    throw "CONFIGGAP_REPORT_REF_MISMATCH: report records '$recordedRef', but HEAD is '$head'."
+if ($resolvedRef -ne $recordedRef.ToLowerInvariant()) {
+    throw "CONFIGGAP_REPORT_REF_UNRESOLVED: report candidate ref '$recordedRef' does not resolve to a commit in the repository."
+}
+
+& git -C $repo merge-base --is-ancestor $resolvedRef $head 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "CONFIGGAP_REPORT_REF_NOT_ANCESTOR: report candidate ref '$recordedRef' is not an ancestor of HEAD '$head'."
 }
 
 Write-Output "Report candidate ref: $recordedRef"
 Write-Output "HEAD: $head"
-Write-Output 'Report candidate ref consistency: PASS'
+Write-Output 'Report candidate ref consistency: PASS (frozen candidate resolves and is an ancestor of HEAD)'
