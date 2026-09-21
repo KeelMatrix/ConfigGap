@@ -14,7 +14,7 @@ The tool targets .NET 8 and exposes the `configgap` command.
 
 ## Platform support
 
-Windows has local performance and targeted test evidence, and the final candidate passed the reproducible Linux Docker matrix for Release build, full tests, package, and consumer smoke. macOS remains unverified locally. See [platform support](docs/platform-support.md) for the matrix, reproducible command, and residual uncertainty.
+Windows has local performance and targeted test evidence, and the exact candidate passed hosted GitHub Actions on Ubuntu, Windows, and macOS for the Release build, full tests, package, and consumer smoke. macOS remains unverified locally. See [platform support](docs/platform-support.md) for the matrix, reproducible command, hosted evidence, and residual uncertainty.
 
 ## First success
 

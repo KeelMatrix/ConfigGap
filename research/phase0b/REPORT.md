@@ -4,7 +4,7 @@
 
 Overall verdict: PASS
 
-Recorded candidate ref: `3f36d134fe6c4f756439024431b6a68a11972538`
+Recorded candidate ref: `29168b750cd7cc3f1716209f06629dd308fb6cee`
 
 Code candidate ref: 8e1a95392638415e5fc965eaa7fd3d371ddc6650
 Evidence checkpoint ref: b684be3e452dff6acdc9ce4dacc3fa78b7be13ea
@@ -105,7 +105,7 @@ Linux matrix results:
 | release-pack | 0 | 6,724 ms |
 | consumer-smoke | 0 | 9,980 ms |
 
-Raw tails included zero-warning/zero-error Release build, 10 passing core tests and 18 passing CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. Hosted CI run [35596419966](https://github.com/KeelMatrix/ConfigGap/actions/runs/35596419966), triggered by `push`, subsequently passed all three OS legs. The workflow is not tag/manual-only; macOS passed in that hosted run but was not locally verified.
+Raw tails included zero-warning/zero-error Release build, 10 passing core tests and 18 passing CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. Hosted CI run [35608397885](https://github.com/KeelMatrix/ConfigGap/actions/runs/35608397885), triggered by `push` for the exact recorded candidate, passed all three OS legs. The workflow is not tag/manual-only; macOS passed in that hosted run but was not locally verified.
 
 Windows evidence for this candidate includes the three-run performance protocol and the targeted 10/10 core test rerun. macOS remains expected only when documented MSBuild/Roslyn workspace loading works and is not independently verified here.
 

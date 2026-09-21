@@ -18,7 +18,7 @@ Run from the repository root with Docker available:
 pwsh -NoProfile -File ./scripts/Test-PlatformMatrix.ps1
 ```
 
-The script pulls the official .NET 8 SDK tag, prints its resolved digest, and records each command duration and raw output tail. Hosted CI runs the repository workflow on `push` and pull requests; run [35596419966](https://github.com/KeelMatrix/ConfigGap/actions/runs/35596419966), triggered by `push`, passed the Ubuntu, Windows, and macOS matrix legs. The hosted macOS leg is evidence for the documented build/test/package path, while macOS was not verified locally and the Docker platform harness is only executed from the Ubuntu leg.
+The script pulls the official .NET 8 SDK tag, prints its resolved digest, and records each command duration and raw output tail. Hosted CI runs the repository workflow on `push` and pull requests; run [35608397885](https://github.com/KeelMatrix/ConfigGap/actions/runs/35608397885), triggered by `push` for the exact candidate, passed the Ubuntu, Windows, and macOS matrix legs. The hosted macOS leg is evidence for the documented build/test/package path, while macOS was not verified locally and the Docker platform harness is only executed from the Ubuntu leg.
 
 ## Residual uncertainty
 
