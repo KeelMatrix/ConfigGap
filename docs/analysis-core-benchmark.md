@@ -11,7 +11,7 @@ The fresh Windows measurement used 51 project fixture patterns, 2 shared fixture
 - derived bound: 27,300 ms wall clock and 270,532,608 bytes peak working set;
 - environment: Windows 10.0.19045, x64, 16 processors, .NET SDK 8.0.425, PowerShell 7.6.6.
 
-The machine-readable result is [`research/phase0b/performance.json`](../research/phase0b/performance.json). The separate Linux platform matrix passed the final candidate's build, full tests, package, and consumer smoke; it was not a performance-bound measurement. Hosted CI run [35608397885](https://github.com/KeelMatrix/ConfigGap/actions/runs/35608397885) for the exact candidate passed the Windows and macOS matrix legs. macOS remains unverified locally.
+The machine-readable result is [`research/phase0b/performance.json`](../research/phase0b/performance.json). The separate Linux platform matrix passed the verified implementation commit's build, full tests, package, and consumer smoke; it was not a performance-bound measurement. Hosted CI run [35608970814](https://github.com/KeelMatrix/ConfigGap/actions/runs/35608970814) verified commit `3189f051` on the Ubuntu, Windows, and macOS matrix legs; the current tip adds documentation-only changes on top of that verified commit. macOS remains unverified locally.
 
 ## Reproduce
 
