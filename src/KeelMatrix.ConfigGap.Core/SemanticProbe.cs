@@ -780,15 +780,20 @@ public sealed class SemanticProbe
             return [new StringResolution(null, "dynamic-section-local")];
         }
 
+        if (!IsConfigurationSectionType(initializerType))
+        {
+            return IsKnownRootConfigurationExpression(variable.Initializer.Value, declarationModel)
+                ? []
+                : [new StringResolution(null, "dynamic-section-local")];
+        }
+
         var resolutions = ResolveSectionPrefix(
             variable.Initializer.Value,
             declarationModel,
             compilation,
             cancellationToken,
             visitedLocals);
-        return resolutions.Length == 0
-            ? [new StringResolution(null, "dynamic-section-local")]
-            : resolutions;
+        return resolutions;
     }
 
     private static bool IsLocalWrite(IdentifierNameSyntax identifier)
@@ -838,6 +843,21 @@ public sealed class SemanticProbe
         }
 
         return initializer is MemberAccessExpressionSyntax or IdentifierNameSyntax;
+    }
+
+    private static bool IsKnownRootConfigurationExpression(ExpressionSyntax expression, SemanticModel model)
+    {
+        if (expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            return model.GetSymbolInfo(memberAccess).Symbol is IPropertySymbol or IFieldSymbol;
+        }
+
+        if (expression is IdentifierNameSyntax identifier)
+        {
+            return model.GetSymbolInfo(identifier).Symbol is IParameterSymbol or IPropertySymbol or IFieldSymbol;
+        }
+
+        return false;
     }
 
     private static IReadOnlyList<StringResolution> CombineConfigurationPaths(
