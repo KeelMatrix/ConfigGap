@@ -101,6 +101,47 @@ public sealed class ConfigurationAnalysisTests
         Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "AliasKey");
     }
 
+    [Fact]
+    public async Task InterfaceTypedSectionAliasesPreserveScopeForDirectAndHelperReads()
+    {
+        var result = await AnalyzeFixtureAsync();
+
+        Assert.Contains(result.Report.ActuallyReadKeys, key => key.Equals("Payments:Provider:ApiKey", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Payments:HelperApiKey", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain("Provider:ApiKey", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain("HelperApiKey", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key is "Provider:ApiKey" or "HelperApiKey");
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Payments:AliasRootOnly");
+    }
+
+    [Fact]
+    public async Task UnsupportedConfigurationAliasesRemainUnknownInsteadOfBecomingRootReads()
+    {
+        var result = await AnalyzeFixtureAsync();
+
+        Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Untrusted:Key");
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG900" && finding.Source == "fixtures/FixtureConsumer/Patterns/UnsupportedConfigurationAlias.cs");
+    }
+
+    [Fact]
+    public async Task IndependentlyEvaluatedFallbackReadsRemainVisible()
+    {
+        var result = await AnalyzeFixtureAsync();
+
+        Assert.Contains("Primary", result.Report.ActuallyReadKeys);
+        Assert.Contains("Fallback", result.Report.ActuallyReadKeys);
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Fallback");
+    }
+
+    [Fact]
+    public async Task UnknownBindSectionProducesAnInformationalObservation()
+    {
+        var result = await AnalyzeFixtureAsync();
+
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG900" && finding.Source == "fixtures/FixtureConsumer/Patterns/DynamicBind.cs");
+        Assert.DoesNotContain(result.Report.Findings, finding => finding.Code == "CG001" && finding.Source == "fixtures/FixtureConsumer/Patterns/DynamicBind.cs");
+    }
+
     [Theory]
     [InlineData("{\"declarationSurfaces\":[]}")]
     [InlineData("{\"version\":1}")]
@@ -118,6 +159,99 @@ public sealed class ConfigurationAnalysisTests
         finally
         {
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"version\":1,\"frameworkOwnedPolicy\":\"include\",\"declarationSurfaces\":[]}")]
+    [InlineData("{\"version\":1,\"declarationSurfaces\":[\"appsettings.json\"]}")]
+    public void DeclarationGraphRejectsInvalidConfiguredSurfaceVariants(string json)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "configgap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, ".configgap.json");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "appsettings.json"), "{\"Declared\":null}");
+            File.WriteAllText(path, json);
+            Assert.Throws<InvalidOperationException>(() => DeclarationGraph.Load(root));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeclarationGraphRejectsAConfiguredFileLinkThatEscapesTheRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "configgap-tests", Guid.NewGuid().ToString("N"));
+        var outside = Path.Combine(Path.GetTempPath(), "configgap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outside);
+        var link = Path.Combine(root, "linked.json");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, ".configgap.json"), "{\"version\":1,\"declarationSurfaces\":[{\"kind\":\"json\",\"path\":\"linked.json\"}]}");
+            var outsideFile = Path.Combine(outside, "external.json");
+            File.WriteAllText(outsideFile, "not-json");
+            try
+            {
+                File.CreateSymbolicLink(link, outsideFile);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                throw Xunit.Sdk.SkipException.ForSkip($"The test environment does not allow symbolic links: {exception.Message}");
+            }
+            catch (PlatformNotSupportedException exception)
+            {
+                throw Xunit.Sdk.SkipException.ForSkip($"The test platform does not support symbolic links: {exception.Message}");
+            }
+
+            var error = Assert.Throws<InvalidOperationException>(() => DeclarationGraph.Load(root));
+            Assert.Contains("must stay inside the repository", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            if (Directory.Exists(outside))
+            {
+                Directory.Delete(outside, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void DeclarationGraphUsesFilesystemCaseRulesForConfiguredPaths()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var parent = Path.Combine(Path.GetTempPath(), "configgap-tests", Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(parent, "repo");
+        var sibling = Path.Combine(parent, "REPO");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(sibling);
+        try
+        {
+            var configPath = Path.Combine(sibling, ".configgap.json");
+            File.WriteAllText(configPath, "{\"version\":1,\"declarationSurfaces\":[]}");
+
+            var error = Assert.Throws<InvalidOperationException>(() => DeclarationGraph.Load(root, configPath));
+            Assert.Contains("must stay inside the repository", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(parent))
+            {
+                Directory.Delete(parent, recursive: true);
+            }
         }
     }
 

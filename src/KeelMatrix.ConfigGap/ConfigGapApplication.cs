@@ -200,9 +200,11 @@ internal static class WorkspaceSelector
         var anchorDirectory = File.Exists(anchor) ? Path.GetDirectoryName(anchor)! : anchor;
         var root = FindRepositoryRoot(current) ?? FindRepositoryRoot(anchorDirectory) ?? anchorDirectory;
 
-        var solutionPath = options.SolutionPath is null
-            ? FindDefaultSolution(root, current)
-            : ResolveExistingPath(root, current, options.SolutionPath, "solution");
+        var solutionPath = options.SolutionPath is not null
+            ? ResolveExistingPath(root, current, options.SolutionPath, "solution")
+            : options.ProjectPath is null
+                ? FindDefaultSolution(root, current)
+                : null;
         var projectPath = options.ProjectPath is null
             ? null
             : ResolveExistingPath(root, current, options.ProjectPath, "project");
@@ -228,11 +230,11 @@ internal static class WorkspaceSelector
     private static string? FindDefaultSolution(string root, string current)
     {
         var candidates = Directory.EnumerateFiles(current, "*.sln", SearchOption.TopDirectoryOnly)
-            .Concat(!string.Equals(current, root, StringComparison.OrdinalIgnoreCase)
+            .Concat(!RepositoryPathPolicy.PathComparer.Equals(current, root)
                 ? Directory.EnumerateFiles(root, "*.sln", SearchOption.TopDirectoryOnly)
                 : [])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Distinct(RepositoryPathPolicy.PathComparer)
+            .OrderBy(path => path, RepositoryPathPolicy.PathComparer)
             .ToArray();
         if (candidates.Length == 1)
         {
@@ -251,16 +253,13 @@ internal static class WorkspaceSelector
     private static string ResolveExistingPath(string root, string current, string path, string kind)
     {
         var full = Path.GetFullPath(Path.Combine(current, path));
+        RepositoryPathPolicy.EnsureInsideRepository(
+            root,
+            full,
+            $"CONFIGGAP_WORKSPACE_LOAD_FAILURE: the {kind} must stay inside the repository.");
         if (!File.Exists(full))
         {
             throw new InvalidOperationException($"CONFIGGAP_WORKSPACE_LOAD_FAILURE: the {kind} '{path}' does not exist.");
-        }
-
-        var rootWithSeparator = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        if (!full.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(full, root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException($"CONFIGGAP_WORKSPACE_LOAD_FAILURE: the {kind} must stay inside the repository.");
         }
 
         return full;

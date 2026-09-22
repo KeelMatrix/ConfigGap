@@ -9,7 +9,8 @@
     { "id": "custom-extension-wrapper", "source": "fixtures/FixtureSupport/CustomConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Custom:WrappedKey"] },
     { "id": "cross-project-helper-body", "source": "fixtures/FixtureSupport/CrossProjectConfigurationExtensions.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-computed-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicComputedKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
-    { "id": "dynamic-configuration-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicConfigurationKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "dynamic-bind", "source": "fixtures/FixtureConsumer/Patterns/DynamicBind.cs", "kind": "options-bind", "expectedClassification": "unknown", "expectedKeys": [] },
+    { "id": "dynamic-configuration-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicConfigurationKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": ["KeyNameSource"], "expectedObservationCount": 2 },
     { "id": "dynamic-parameter-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicParameterKey.cs", "kind": "get-value", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "dynamic-variable-key", "source": "fixtures/FixtureConsumer/Patterns/DynamicVariableKey.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "environment-double-underscore", "source": "fixtures/FixtureConsumer/Patterns/EnvironmentDoubleUnderscore.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["PAYMENTS:PROVIDER:APIKEY"] },
@@ -19,6 +20,7 @@
     { "id": "get-required-section", "source": "fixtures/FixtureConsumer/Patterns/GetRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
     { "id": "get-section", "source": "fixtures/FixtureConsumer/Patterns/GetSection.cs", "kind": "section", "expectedClassification": "declared", "expectedKeys": ["Section"] },
     { "id": "get-value", "source": "fixtures/FixtureConsumer/Patterns/GetValue.cs", "kind": "get-value", "expectedClassification": "declared", "expectedKeys": ["Section:Key"] },
+    { "id": "get-value-fallback", "source": "fixtures/FixtureConsumer/Patterns/GetValueFallback.cs", "kind": "get-value", "expectedClassification": "discovered", "expectedKeys": ["Fallback", "Primary"], "expectedObservationCount": 2 },
     { "id": "helper-beyond-depth", "source": "fixtures/FixtureConsumer/Patterns/HelperBeyondDepth.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "helper-branch-condition", "source": "fixtures/FixtureConsumer/Patterns/HelperBranchCondition.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] },
     { "id": "helper-const-argument", "source": "fixtures/FixtureConsumer/Patterns/HelperConstArgument.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Helpers:Const"], "expectedLine": 8 },
@@ -53,6 +55,10 @@
     { "id": "section-variable-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableIndexer.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Section:AliasMissing"], "expectedLine": 10, "expectedObservationCount": 2 },
     { "id": "section-variable-reassigned", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableReassigned.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [], "expectedLine": 11, "expectedObservationCount": 3 },
     { "id": "section-variable-required-section", "source": "fixtures/FixtureConsumer/Patterns/SectionVariableRequiredSection.cs", "kind": "required-section", "expectedClassification": "declared", "expectedKeys": ["Section:AliasKey"], "expectedLine": 10, "expectedObservationCount": 2 },
-    { "id": "template-only-options", "source": "fixtures/FixtureConsumer/Patterns/TemplateOnlyOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["TEMPLATE_ONLY"] }
+    { "id": "section-helper-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionHelperIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Payments:HelperApiKey"] },
+    { "id": "section-interface-alias-indexer", "source": "fixtures/FixtureConsumer/Patterns/SectionInterfaceAliasIndexer.cs", "kind": "indexer", "expectedClassification": "declared", "expectedKeys": ["Payments:Provider:ApiKey"], "expectedLine": 10, "expectedObservationCount": 2 },
+    { "id": "section-interface-alias-missing", "source": "fixtures/FixtureConsumer/Patterns/SectionInterfaceAliasMissing.cs", "kind": "indexer", "expectedClassification": "discovered", "expectedKeys": ["Payments:AliasRootOnly"], "expectedLine": 10, "expectedObservationCount": 2 },
+    { "id": "template-only-options", "source": "fixtures/FixtureConsumer/Patterns/TemplateOnlyOptions.cs", "kind": "options-bind", "expectedClassification": "declared", "expectedKeys": ["TEMPLATE_ONLY"] },
+    { "id": "unsupported-configuration-alias", "source": "fixtures/FixtureConsumer/Patterns/UnsupportedConfigurationAlias.cs", "kind": "indexer", "expectedClassification": "unknown", "expectedKeys": [] }
   ]
 }

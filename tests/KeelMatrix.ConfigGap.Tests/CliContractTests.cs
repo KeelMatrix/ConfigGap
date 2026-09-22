@@ -49,6 +49,159 @@ public sealed class CliContractTests
     }
 
     [Fact]
+    public async Task CliPreservesSectionScopeAndIndependentFallbackReads()
+    {
+        var result = await RunAsync("check", "--project", ConsumerProject, "--config", Path.Combine("fixtures", "FixtureConsumer", ".configgap.json"), "--format", "json");
+
+        using var report = JsonDocument.Parse(result.Output);
+        var findings = report.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        var readKeys = report.RootElement.GetProperty("actuallyReadKeys").EnumerateArray().Select(key => key.GetString()).ToArray();
+        Assert.Contains(readKeys, key => key?.Equals("Payments:Provider:ApiKey", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Contains("Payments:HelperApiKey", readKeys);
+        Assert.Contains("Fallback", readKeys);
+        Assert.DoesNotContain("Provider:ApiKey", readKeys);
+        Assert.Contains(findings, finding => finding.GetProperty("code").GetString() == "CG001" && finding.GetProperty("key").GetString() == "Fallback");
+        Assert.Contains(findings, finding => finding.GetProperty("code").GetString() == "CG001" && finding.GetProperty("key").GetString() == "Payments:AliasRootOnly");
+        Assert.DoesNotContain(findings, finding => finding.GetProperty("code").GetString() == "CG001" && finding.GetProperty("key").GetString() is "Provider:ApiKey" or "HelperApiKey");
+        Assert.Contains(findings, finding => finding.GetProperty("code").GetString() == "CG900" && finding.GetProperty("source").GetString() == "fixtures/FixtureConsumer/Patterns/DynamicBind.cs");
+    }
+
+    [Theory]
+    [InlineData("{\"version\":1,\"frameworkOwnedPolicy\":\"include\",\"declarationSurfaces\":[]}")]
+    [InlineData("{\"version\":1,\"declarationSurfaces\":[\"appsettings.json\"]}")]
+    public async Task InvalidConfigurationVariantsReturnExitTwo(string json)
+    {
+        var directory = Path.Combine(RepositoryRoot, "artifacts", $"config-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, ".configgap.json");
+        try
+        {
+            await File.WriteAllTextAsync(configPath, json);
+            var result = await RunAsync(
+                "check",
+                "--project", CleanProject,
+                "--config", Path.GetRelativePath(RepositoryRoot, configPath),
+                "--format", "json");
+
+            Assert.Equal(2, result.ExitCode);
+            using var report = JsonDocument.Parse(result.Output);
+            Assert.False(report.RootElement.GetProperty("trustworthyAnalysis").GetBoolean());
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExplicitProjectSelectionDoesNotInferAnAmbiguousSolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "configgap-cli-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".git"));
+            File.WriteAllText(Path.Combine(root, "first.sln"), string.Empty);
+            File.WriteAllText(Path.Combine(root, "second.sln"), string.Empty);
+            File.WriteAllText(Path.Combine(root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>");
+            File.WriteAllText(Path.Combine(root, "Program.cs"), "public static class Program { public static void Main() { } }");
+            File.WriteAllText(Path.Combine(root, "configgap.json"), "{\"version\":1,\"declarationSurfaces\":[]}");
+
+            var result = await RunAsync(root, ["check", "--project", "App.csproj", "--config", "configgap.json", "--format", "json"], new RecordingTelemetry());
+
+            Assert.Equal(0, result.ExitCode);
+            using var report = JsonDocument.Parse(result.Output);
+            Assert.True(report.RootElement.GetProperty("trustworthyAnalysis").GetBoolean(), result.Error);
+            Assert.Equal(1, report.RootElement.GetProperty("projectCount").GetInt32());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void WorkspaceSelectionUsesFilesystemCaseRulesForExplicitProjects()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var parent = Path.Combine(Path.GetTempPath(), "configgap-cli-tests", Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(parent, "repo");
+        var sibling = Path.Combine(parent, "REPO");
+        Directory.CreateDirectory(Path.Combine(root, ".git"));
+        Directory.CreateDirectory(sibling);
+        try
+        {
+            File.WriteAllText(Path.Combine(sibling, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+            var error = Assert.Throws<InvalidOperationException>(() => WorkspaceSelector.Resolve(
+                new CliOptions { ProjectPath = "../REPO/App.csproj" },
+                root));
+            Assert.Contains("must stay inside the repository", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(parent))
+            {
+                Directory.Delete(parent, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void WorkspaceSelectionRejectsAProjectLinkThatEscapesTheRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "configgap-cli-tests", Guid.NewGuid().ToString("N"));
+        var outside = Path.Combine(Path.GetTempPath(), "configgap-cli-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".git"));
+        Directory.CreateDirectory(outside);
+        var link = Path.Combine(root, "linked.csproj");
+        try
+        {
+            var outsideProject = Path.Combine(outside, "external.csproj");
+            File.WriteAllText(outsideProject, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+            try
+            {
+                File.CreateSymbolicLink(link, outsideProject);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                throw Xunit.Sdk.SkipException.ForSkip($"The test environment does not allow symbolic links: {exception.Message}");
+            }
+            catch (PlatformNotSupportedException exception)
+            {
+                throw Xunit.Sdk.SkipException.ForSkip($"The test platform does not support symbolic links: {exception.Message}");
+            }
+
+            var error = Assert.Throws<InvalidOperationException>(() => WorkspaceSelector.Resolve(
+                new CliOptions { ProjectPath = "linked.csproj" },
+                root));
+            Assert.Contains("must stay inside the repository", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            if (Directory.Exists(outside))
+            {
+                Directory.Delete(outside, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task MissingDeclarationProducesBlockingTextDiagnosticAndExitOne()
     {
         var result = await RunAsync("check", "--project", ConsumerProject, "--config", DefaultConfig, "--format", "text");

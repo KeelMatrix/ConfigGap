@@ -1,4 +1,5 @@
-﻿using Microsoft.Build.Locator;
+﻿using KeelMatrix.ConfigGap.Core;
+using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -101,8 +102,8 @@ public sealed class SemanticProbe
         var analyzedFileCount = 0;
         foreach (var project in solution.Projects
             .Where(project => selectedProjectPath is null ||
-                string.Equals(Path.GetFullPath(project.FilePath ?? string.Empty), selectedProjectPath, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(project => project.FilePath, StringComparer.OrdinalIgnoreCase))
+                RepositoryPathPolicy.PathComparer.Equals(Path.GetFullPath(project.FilePath ?? string.Empty), selectedProjectPath))
+            .OrderBy(project => project.FilePath, RepositoryPathPolicy.PathComparer))
         {
             projectCount++;
             selectedProjectFound = true;
@@ -131,7 +132,9 @@ public sealed class SemanticProbe
                     "Restore the project and verify its SDK, project references, and assets.");
             }
 
-            var localHelperPropagation = new LocalHelperPropagation(compilation);
+            var localHelperPropagation = new LocalHelperPropagation(
+                compilation,
+                (expression, semanticModel) => ResolveSectionPrefix(expression, semanticModel, compilation, cancellationToken));
 
             var compilationErrors = compilation.GetDiagnostics(cancellationToken)
                 .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
@@ -146,7 +149,7 @@ public sealed class SemanticProbe
                     string.Join(" | ", compilationErrors));
             }
 
-            foreach (var document in project.Documents.OrderBy(document => document.FilePath, StringComparer.OrdinalIgnoreCase))
+            foreach (var document in project.Documents.OrderBy(document => document.FilePath, RepositoryPathPolicy.PathComparer))
             {
                 if (document.FilePath is null)
                 {
@@ -166,11 +169,6 @@ public sealed class SemanticProbe
                 foreach (var elementAccess in root.DescendantNodes().OfType<ElementAccessExpressionSyntax>())
                 {
                     if (localHelperPropagation.ShouldSkip(elementAccess))
-                    {
-                        continue;
-                    }
-
-                    if (IsNestedKeyExpression(elementAccess, model, cancellationToken))
                     {
                         continue;
                     }
@@ -319,16 +317,13 @@ public sealed class SemanticProbe
                     {
                         foreach (var section in ResolveConfigurationPath(receiver, model, compilation, cancellationToken))
                         {
-                            if (section.Value is not null)
-                            {
-                                observations.Add(CreateObservation(
-                                    repositoryRoot,
-                                    document.FilePath,
-                                    invocation,
-                                    "options-bind",
-                                    new StringResolution(section.Value, "static-options-section"),
-                                    isRequiredBinding: IsRequiredSectionInvocation(receiver)));
-                            }
+                            observations.Add(CreateObservation(
+                                repositoryRoot,
+                                document.FilePath,
+                                invocation,
+                                "options-bind",
+                                new StringResolution(section.Value, section.Kind),
+                                isRequiredBinding: IsRequiredSectionInvocation(receiver)));
                         }
 
                         continue;
@@ -698,19 +693,24 @@ public sealed class SemanticProbe
             return [];
         }
 
-        if (!IsConfigurationSectionType(type))
-        {
-            return [];
-        }
-
         var activeLocals = visitedLocals ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        if (receiver is IdentifierNameSyntax identifier &&
-            model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol local)
+        if (receiver is IdentifierNameSyntax identifier)
         {
-            return ResolveLocalSectionPrefix(local, compilation, activeLocals, cancellationToken);
+            var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
+            if (symbol is ILocalSymbol local)
+            {
+                return ResolveLocalSectionPrefix(local, compilation, activeLocals, cancellationToken);
+            }
+
+            if (symbol is IParameterSymbol)
+            {
+                return [];
+            }
+
+            return [new StringResolution(null, "dynamic-section-prefix")];
         }
 
-        if (receiver is not InvocationExpressionSyntax)
+        if (!IsConfigurationSectionType(type))
         {
             return [new StringResolution(null, "dynamic-section-prefix")];
         }
@@ -755,7 +755,7 @@ public sealed class SemanticProbe
         }
 
         var initializerType = declarationModel.GetTypeInfo(variable.Initializer.Value, cancellationToken).Type;
-        if (initializerType is null || !IsConfigurationSectionType(initializerType))
+        if (initializerType is null || !IsConfigurationType(initializerType))
         {
             return [new StringResolution(null, "dynamic-section-local")];
         }
@@ -890,25 +890,4 @@ public sealed class SemanticProbe
         return outer;
     }
 
-    private static bool IsNestedKeyExpression(
-        ElementAccessExpressionSyntax elementAccess,
-        SemanticModel model,
-        CancellationToken cancellationToken)
-    {
-        SyntaxNode current = elementAccess;
-        while (current.Parent is not null && current.Parent is not ArgumentSyntax)
-        {
-            current = current.Parent;
-        }
-
-        if (current.Parent is not ArgumentSyntax argument || argument.Parent?.Parent is not InvocationExpressionSyntax invocation)
-        {
-            return false;
-        }
-
-        var symbol = model.GetSymbolInfo(invocation, cancellationToken).Symbol as IMethodSymbol;
-        var methodName = symbol?.Name ??
-            (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text;
-        return methodName is "GetValue" or "GetSection" or "GetRequiredSection" or "BindConfiguration";
-    }
 }

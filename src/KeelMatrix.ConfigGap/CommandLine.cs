@@ -81,8 +81,8 @@ internal static class CommandLineParser
           configgap check [--solution <path>] [--project <path>] [--config <path>] [--format text|json]
 
         Options:
-          --solution <path>  Solution to analyze. If omitted, one solution in the current repository is selected.
-          --project <path>   Project to select from the solution, or the project to analyze when no solution exists.
+          --solution <path>  Solution to analyze. If omitted, one solution is selected only when --project is not supplied.
+          --project <path>   Project to analyze directly, or to select from the explicitly supplied solution.
           --config <path>    appsettings*.json/.env.example, or a version 1 ConfigGap surface file.
           --format text|json Human diagnostics (default) or the versioned local JSON report.
 

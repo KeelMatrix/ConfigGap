@@ -31,6 +31,8 @@ configgap check --solution src/App.sln --format json
 configgap check --project src/App/App.csproj --config .configgap.json
 ```
 
+An explicit `--project` is analyzed directly. ConfigGap infers a solution only when neither `--solution` nor `--project` is supplied; pass both options when selecting one project from an explicit solution.
+
 The JSON report is deterministic and stays on the local output stream.
 
 ## What is checked

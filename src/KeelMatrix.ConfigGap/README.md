@@ -14,7 +14,7 @@ Run it from an ASP.NET Core repository:
 configgap check
 ```
 
-Use `--solution`, `--project`, `--config`, and `--format text|json` to select the workspace and output. `CG001` is a blocking used-but-undeclared key and returns exit code `1`. `CG002` is a non-blocking warning for a declared example key not observed by analyzed code. `CG900` is informational for dynamic or unresolvable access and never blocks. Exit code `2` means the workspace or configuration could not be analyzed trustworthily.
+Use `--solution`, `--project`, `--config`, and `--format text|json` to select the workspace and output. An explicit `--project` is analyzed directly unless `--solution` is also supplied; solution inference is used only when neither selector is supplied. `CG001` is a blocking used-but-undeclared key and returns exit code `1`. `CG002` is a non-blocking warning for a declared example key not observed by analyzed code. `CG900` is informational for dynamic or unresolvable access and never blocks. Exit code `2` means the workspace or configuration could not be analyzed trustworthily.
 
 The JSON report preserves `knownKeys`, `bindableKeys`, `requiredKeys`, and `actuallyReadKeys` as separate states. The CLI schema is [`configgap-cli-report.schema.json`](../../docs/configgap-cli-report.schema.json).
 

@@ -1,4 +1,6 @@
 {
   "version": 1,
-  "declarationSurfaces": ["tests/FixtureClean/appsettings.json"]
+  "declarationSurfaces": [
+    { "kind": "json", "path": "appsettings.json" }
+  ]
 }

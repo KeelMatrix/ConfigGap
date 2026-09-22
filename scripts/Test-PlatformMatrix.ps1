@@ -111,7 +111,9 @@ EOF
     cat >"$destination/configgap.json" <<'EOF'
 {
   "version": 1,
-  "declarationSurfaces": ["appsettings.json"]
+  "declarationSurfaces": [
+    { "kind": "json", "path": "appsettings.json" }
+  ]
 }
 EOF
     dotnet restore "$destination/FixtureClean.csproj" --configfile "$feed_config" --ignore-failed-sources --nologo

@@ -150,6 +150,7 @@ internal static class Program
                 .OrderBy(observation => observation.Line)
                 .ThenBy(observation => observation.Column)
                 .ToArray();
+            var totalMatched = matched.Length;
             if (expected.ExpectedLine is not null && matched.Length > 1)
             {
                 var lineMatched = matched.Where(observation => observation.Line == expected.ExpectedLine.Value).ToArray();
@@ -178,7 +179,7 @@ internal static class Program
                 .ToList();
             var observedKinds = matched.Select(observation => observation.Kind).Distinct(StringComparer.Ordinal).ToArray();
             var resolutions = matched.Select(observation => observation.Resolution).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToList();
-            var failure = GetFailure(expected, matched, observedClassification, expectedKeys, observedKeys, observedKinds);
+            var failure = GetFailure(expected, matched, totalMatched, observedClassification, expectedKeys, observedKeys, observedKinds);
 
             results.Add(new PatternResult
             {
@@ -221,19 +222,20 @@ internal static class Program
     private static string? GetFailure(
         ExpectedPattern expected,
         IReadOnlyList<ObservedAccess> matched,
+        int totalMatched,
         string observedClassification,
         IReadOnlyList<string> expectedKeys,
         IReadOnlyList<string> observedKeys,
         IReadOnlyList<string> observedKinds)
     {
-        if (matched.Count != 1)
+        if (totalMatched != expected.ExpectedObservationCount)
         {
-            return $"expected exactly one semantic observation, found {matched.Count}";
+            return $"expected {expected.ExpectedObservationCount} semantic observations, found {totalMatched}";
         }
 
-        if (!string.Equals(expected.Kind, observedKinds[0], StringComparison.Ordinal))
+        if (!observedKinds.Contains(expected.Kind, StringComparer.Ordinal))
         {
-            return $"expected kind '{expected.Kind}', observed '{observedKinds[0]}'";
+            return $"expected kind '{expected.Kind}', observed '{string.Join(',', observedKinds)}'";
         }
 
         if (!string.Equals(expected.ExpectedClassification, observedClassification, StringComparison.Ordinal))

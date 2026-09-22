@@ -14,12 +14,16 @@ internal sealed class LocalHelperPropagation
     private const int MaximumHelperHops = 2;
 
     private readonly Compilation _compilation;
+    private readonly Func<ExpressionSyntax, SemanticModel, StringResolution[]> _resolveSectionPrefix;
     private readonly Dictionary<IMethodSymbol, HelperInfo?> _helperCache = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _forwardedNodes = [];
 
-    public LocalHelperPropagation(Compilation compilation)
+    public LocalHelperPropagation(
+        Compilation compilation,
+        Func<ExpressionSyntax, SemanticModel, StringResolution[]> resolveSectionPrefix)
     {
         _compilation = compilation;
+        _resolveSectionPrefix = resolveSectionPrefix;
 
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -77,9 +81,7 @@ internal sealed class LocalHelperPropagation
             {
                 return new PropagatedResolution(
                     helper.Candidate.Kind,
-                    resolution.IsStatic
-                        ? new StringResolution(resolution.Value, "static-helper-propagation")
-                        : new StringResolution(null, resolution.Kind));
+                    ApplyTerminalSectionScope(helper.Candidate, resolution));
             }
 
             if (hops >= MaximumHelperHops || helper.Candidate.Callee is not { } callee ||
@@ -113,6 +115,44 @@ internal sealed class LocalHelperPropagation
         }
 
         return FindTerminalKind(next, visiting);
+    }
+
+    private StringResolution ApplyTerminalSectionScope(
+        ForwardingCandidate candidate,
+        StringResolution resolution)
+    {
+        if (!resolution.IsStatic)
+        {
+            return new StringResolution(null, resolution.Kind);
+        }
+
+        var receiver = candidate.Node switch
+        {
+            ElementAccessExpressionSyntax elementAccess => elementAccess.Expression,
+            InvocationExpressionSyntax invocation when invocation.Expression is MemberAccessExpressionSyntax memberAccess => memberAccess.Expression,
+            _ => null
+        };
+        if (receiver is null || !IsConfigurationType(GetSemanticModel(candidate.Node).GetTypeInfo(receiver).Type))
+        {
+            return new StringResolution(resolution.Value, "static-helper-propagation");
+        }
+
+        var prefixes = _resolveSectionPrefix(receiver, GetSemanticModel(candidate.Node));
+        if (prefixes.Length == 0)
+        {
+            return new StringResolution(resolution.Value, "static-helper-propagation");
+        }
+
+        var prefix = prefixes.FirstOrDefault();
+        if (prefix is null || prefix.Value is null)
+        {
+            return new StringResolution(null, "dynamic-relative-key");
+        }
+
+        var value = prefix.Value.Length == 0
+            ? resolution.Value
+            : $"{KeyNormalizer.Normalize(prefix.Value)}:{KeyNormalizer.Normalize(resolution.Value!)}";
+        return new StringResolution(value, "static-helper-propagation");
     }
 
     private HelperInfo? GetHelperInfo(IMethodSymbol method)

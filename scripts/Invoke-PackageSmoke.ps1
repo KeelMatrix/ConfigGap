@@ -39,7 +39,9 @@ function Copy-Sample {
     @'
 {
   "version": 1,
-  "declarationSurfaces": ["appsettings.json"]
+  "declarationSurfaces": [
+    { "kind": "json", "path": "appsettings.json" }
+  ]
 }
 '@ | Set-Content -LiteralPath (Join-Path $Destination 'configgap.json') -Encoding utf8NoBOM
 }
