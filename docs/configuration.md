@@ -31,6 +31,8 @@ configuration.GetSection("Section");
 configuration.GetRequiredSection("Section");
 ```
 
+Literal reads are also supported when the receiver is directly interface-typed or is a statically resolved alias to a known root configuration property or field.
+
 Supported Options section ownership uses statically known sections and the framework `BindConfiguration("Section")` extension. A property being writable does not make its key required. A key can be known or bindable without being read by code; those concepts are kept separate.
 
 Dynamic and unsupported expressions are reported as unknown information. They never become a missing-key error solely because the expression is dynamic.

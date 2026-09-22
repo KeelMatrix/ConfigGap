@@ -108,3 +108,15 @@ The raw tails included a zero-warning/zero-error Release build, passing core and
 `research/phase0b/metrics.json`, `research/phase0b/performance.json`, the label files, and the scripts linked above are the machine-readable and executable evaluation inputs. The label protocol records source locations, access kinds, normalized keys, framework ownership, and uncertainty dispositions while excluding values and secrets. The selected-project scope is a reproducible analyzability boundary, not a claim that every repository project is analyzed.
 
 The measured resource bounds apply to the generated input and recorded Windows machine. The platform harness verifies the documented Linux path; local macOS workspace compatibility remains unverified. Workspace failures must remain actionable exit-code-2 failures rather than clean results.
+
+## Final fix closure rerun
+
+The final code closure reran the pinned corpus with restore enabled and the resource protocol from a fresh scratch area. The corpus result was `29/29` precision cases, `29/29` supported-domain recall, `29/29` all-labeled-static-key recall, `0` dynamic blocking findings, `0` load failures, `Verdict: PASS`, and `Scratch clones present after cleanup: False`. The resource protocol guarded `3,302` observations on all three runs:
+
+| Run | Duration | Peak working set |
+| ---: | ---: | ---: |
+| 1 | 19,161 ms | 252,293,120 bytes |
+| 2 | 17,270 ms | 251,019,264 bytes |
+| 3 | 19,174 ms | 249,253,888 bytes |
+
+The resource raw maxima were `19,174 ms` and `252,293,120 bytes`; the rerun-derived bounds were `20,800 ms` and `277,872,640 bytes`. The committed frozen V1 bounds remain `21,000 ms` and `274,726,912 bytes`. Every raw sample is below those frozen acceptance limits, so the frozen bounds remain valid and were not weakened; the higher derived working-set figure is only the protocol's 10% margin and is not adopted. The exact-count guard and cleanup checks are the automated rerun gates, with raw maxima evaluated against the frozen bounds.

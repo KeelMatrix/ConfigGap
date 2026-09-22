@@ -13,6 +13,18 @@ The fresh Windows measurement used 57 project fixture patterns, 2 shared fixture
 
 The machine-readable result is [`research/phase0b/performance.json`](../research/phase0b/performance.json). The separate Linux platform matrix covers build, full tests, package creation, and consumer smoke; it is not a performance-bound measurement. macOS remains unverified locally.
 
+## Final fix closure rerun
+
+At the final analyzer code state before this documentation update, the same protocol guarded 3,302 observations on all three runs:
+
+| Run | Duration | Peak working set |
+| ---: | ---: | ---: |
+| 1 | 19,161 ms | 252,293,120 bytes |
+| 2 | 17,270 ms | 251,019,264 bytes |
+| 3 | 19,174 ms | 249,253,888 bytes |
+
+The raw maxima were 19,174 ms and 252,293,120 bytes. The rerun-derived bounds were 20,800 ms and 277,872,640 bytes. The committed frozen V1 acceptance bounds remain 21,000 ms and 274,726,912 bytes: each raw sample is below both frozen limits, so the frozen limits are retained and not weakened. The higher rerun-derived working-set value is the protocol's 10% measurement margin, not a raw observation; the acceptance comparison uses raw maxima against the frozen bounds. The exact-count guard passed on every run and the benchmark scratch directory was absent after cleanup.
+
 ## Reproduce
 
 ```powershell

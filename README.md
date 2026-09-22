@@ -46,6 +46,8 @@ configuration.GetSection("Payments")
 configuration.GetRequiredSection("Payments")
 ```
 
+These literal reads remain supported when the receiver is directly interface-typed or is a statically resolved alias to a known root configuration property or field.
+
 Supported Options analysis includes statically known section ownership and the framework `BindConfiguration("Section")` pattern. A writable Options property is not treated as required merely because it exists. ConfigGap keeps known/bindable keys, required keys, and keys actually read by code conceptually separate; v1 reports the statically observed dependency surface.
 
 Declaration surfaces are:

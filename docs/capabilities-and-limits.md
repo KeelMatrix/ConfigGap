@@ -4,7 +4,7 @@ ConfigGap compares statically resolved .NET configuration usage with the reposit
 
 ## Supported behavior
 
-- Literal and supported constant `IConfiguration` indexer, `GetValue<T>`, `GetSection`, and `GetRequiredSection` access.
+- Literal and supported constant `IConfiguration` indexer, `GetValue<T>`, `GetSection`, and `GetRequiredSection` access, including direct interface-typed receivers and statically resolved aliases to known root configuration properties or fields.
 - Supported Options section ownership and binding forms, including `BindConfiguration`.
 - `appsettings.json`, explicitly selected environment-specific JSON, and explicitly listed environment-name templates.
 - Deterministic `:` and `__` hierarchy normalization.

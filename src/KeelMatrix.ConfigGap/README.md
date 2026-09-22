@@ -18,6 +18,6 @@ Use `--solution`, `--project`, `--config`, and `--format text|json` to select th
 
 The JSON report preserves `knownKeys`, `bindableKeys`, `requiredKeys`, and `actuallyReadKeys` as separate states. The CLI schema is [`configgap-cli-report.schema.json`](../../docs/configgap-cli-report.schema.json).
 
-The tool supports literal and statically resolvable `IConfiguration` access, supported Options section binding, `:`/`__` hierarchy normalization, `appsettings*.json`, and explicitly listed `.env.example`-style name templates. It never needs configuration values or actual `.env` files. Key names may be sensitive; reports stay local. Telemetry uses the shared activation/heartbeat contract and does not receive analysis summaries. Set `KEELMATRIX_NO_TELEMETRY=1` for local validation.
+The tool supports literal and statically resolvable `IConfiguration` access, including direct interface-typed receivers and aliases to known root configuration properties or fields, supported Options section binding, `:`/`__` hierarchy normalization, `appsettings*.json`, and explicitly listed `.env.example`-style name templates. It never needs configuration values or actual `.env` files. Key names may be sensitive; reports stay local. Telemetry uses the shared activation/heartbeat contract and does not receive analysis summaries. Set `KEELMATRIX_NO_TELEMETRY=1` for local validation.
 
 See the [repository documentation](https://github.com/KeelMatrix/ConfigGap#readme) for supported patterns, schemas, limitations, privacy, and troubleshooting.
