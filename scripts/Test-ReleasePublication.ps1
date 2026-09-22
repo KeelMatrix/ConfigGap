@@ -21,16 +21,37 @@ try {
     Set-Content -LiteralPath $symbolsPath -Value 'symbols' -Encoding utf8NoBOM
 
     $logPath = Join-Path $fixture 'push.log'
-    $stubPath = Join-Path $fixture 'dotnet.cmd'
-    @"
+    $runningOnWindows = [OperatingSystem]::IsWindows()
+    $stubPath = Join-Path $fixture $(if ($runningOnWindows) { 'dotnet.cmd' } else { 'dotnet' })
+    $env:CONFIGGAP_STUB_LOG = $logPath
+    if ($runningOnWindows) {
+        @"
 @echo off
 set /a count=0
-if exist "$($logPath.Replace('\', '/'))" for /f %%A in ($($logPath.Replace('\', '/'))) do set /a count=%%A
+if exist "%CONFIGGAP_STUB_LOG%" set /p count=<"%CONFIGGAP_STUB_LOG%"
 set /a count+=1
->"$($logPath.Replace('\', '/'))" echo %count%
+>"%CONFIGGAP_STUB_LOG%" echo %count%
 if %count% EQU 1 exit /b 17
 exit /b 0
 "@ | Set-Content -LiteralPath $stubPath -Encoding ascii
+    }
+    else {
+        @'
+#!/bin/sh
+if [ -f "$CONFIGGAP_STUB_LOG" ]; then
+    count=$(cat "$CONFIGGAP_STUB_LOG")
+else
+    count=0
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$CONFIGGAP_STUB_LOG"
+if [ "$count" -eq 1 ]; then
+    exit 17
+fi
+exit 0
+'@ | Set-Content -LiteralPath $stubPath -Encoding utf8NoBOM
+        & chmod +x $stubPath
+    }
 
     $env:NUGET_API_KEY = 'synthetic-test-key'
     $output = (& pwsh -NoProfile -File $publisher -PackagePath $packagePath -SymbolsPath $symbolsPath -DotnetCommand $stubPath 2>&1 | Out-String)
@@ -42,5 +63,6 @@ exit /b 0
 }
 finally {
     Remove-Item Env:NUGET_API_KEY -ErrorAction SilentlyContinue
+    Remove-Item Env:CONFIGGAP_STUB_LOG -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }
