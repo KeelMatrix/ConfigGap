@@ -37,6 +37,14 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./scripts/Test-PublicHistoryHygiene.ps1
 
+      - name: Check committed evaluation evidence
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-Phase0BEvidence.ps1
+
+      - name: Check report candidate ref
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-ReportCandidateRef.ps1
+
       - name: Install the pinned SDK
         uses: actions/setup-dotnet@v4
         with:

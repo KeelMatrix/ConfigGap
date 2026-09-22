@@ -4,6 +4,8 @@
 
 Overall verdict: PASS
 
+Recorded candidate ref: `e66ba4fafcc38206095333dd5bc2814abd719e08`
+
 This report records the reproducible corpus, performance, and platform evaluation for the analyzer. The labeled corpus, precision/recall thresholds, and resource limits are evaluation inputs; they are not adjusted to improve a result.
 
 ## Corpus execution
