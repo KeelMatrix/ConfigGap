@@ -123,18 +123,14 @@ public sealed class ConfigurationAnalysisTests
         Assert.Contains("Regression:MissingGetValue", result.Report.ActuallyReadKeys);
         Assert.Contains("Regression:MissingAliasedGetValue", result.Report.ActuallyReadKeys);
         Assert.Contains("Regression:MissingAliasedIndexer", result.Report.ActuallyReadKeys);
+        Assert.Contains("Regression:MissingConfigurationManagerProperty", result.Report.ActuallyReadKeys);
         Assert.DoesNotContain(result.Report.Findings, finding =>
             finding.Code == "CG900" &&
-            finding.Source is not null &&
-            (finding.Source.EndsWith("AliasedRootGetValue.cs", StringComparison.Ordinal) ||
-             finding.Source.EndsWith("AliasedRootGetValueMissing.cs", StringComparison.Ordinal) ||
-             finding.Source.EndsWith("AliasedRootIndexer.cs", StringComparison.Ordinal) ||
-             finding.Source.EndsWith("AliasedRootIndexerMissing.cs", StringComparison.Ordinal) ||
-             finding.Source.EndsWith("InterfaceTypedRootGetValue.cs", StringComparison.Ordinal) ||
-             finding.Source.EndsWith("InterfaceTypedRootGetValueMissing.cs", StringComparison.Ordinal)));
+            finding.Source?.EndsWith("RootConfigurationAliases.cs", StringComparison.Ordinal) == true);
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Regression:MissingGetValue");
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Regression:MissingAliasedGetValue");
         Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Regression:MissingAliasedIndexer");
+        Assert.Contains(result.Report.Findings, finding => finding.Code == "CG001" && finding.Key == "Regression:MissingConfigurationManagerProperty");
     }
 
     [Fact]
