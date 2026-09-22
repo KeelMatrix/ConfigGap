@@ -24,6 +24,7 @@ pwsh -NoProfile -File .\scripts\Invoke-PackageSmoke.ps1 -PackagePath .\artifacts
 pwsh -NoProfile -File .\scripts\Test-ReleaseContract.ps1
 pwsh -NoProfile -File .\scripts\Test-ReleasePublication.ps1
 pwsh -NoProfile -File .\scripts\Validate-ReleaseWorkflow.ps1
+pwsh -NoProfile -File .\scripts\Test-PublicHistoryHygiene.ps1
 ```
 
 Keep package contents limited to the explicit payload in `scripts/ExpectedPackagePayload.txt` plus the documented package-root metadata and symbols. The shipping project opts into a pack-time sensitive-input guard; keep all other projects explicitly non-packable.

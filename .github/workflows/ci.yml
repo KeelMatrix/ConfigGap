@@ -33,6 +33,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Check public history hygiene
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-PublicHistoryHygiene.ps1
+
       - name: Install the pinned SDK
         uses: actions/setup-dotnet@v4
         with:
