@@ -113,10 +113,10 @@ try {
     }
 
     Rewrite-Archive -SourcePath $PackagePath -DestinationPath $mutatedPackage -RemoveEntry '' -AddEntry 'unexpected-entry.txt'
-    Invoke-InspectorExpectFailure -MutatedPackagePath $mutatedPackage -MutatedSymbolsPath $SymbolsPath -ExpectedMessage 'explicit expected public artifact set' -CaseName 'unexpected archive entry'
+    Invoke-InspectorExpectFailure -MutatedPackagePath $mutatedPackage -MutatedSymbolsPath $SymbolsPath -ExpectedMessage 'explicit\s+expected\s+public\s+artifact\s+set' -CaseName 'unexpected archive entry'
 
     Rewrite-Archive -SourcePath $SymbolsPath -DestinationPath $mutatedSymbols -RemoveEntry 'tools/net8.0/any/KeelMatrix.ConfigGap.pdb' -AddEntry ''
-    Invoke-InspectorExpectFailure -MutatedPackagePath $PackagePath -MutatedSymbolsPath $mutatedSymbols -ExpectedMessage 'explicit expected symbol set|required symbol entry' -CaseName 'missing required symbol entry'
+    Invoke-InspectorExpectFailure -MutatedPackagePath $PackagePath -MutatedSymbolsPath $mutatedSymbols -ExpectedMessage 'explicit\s+expected\s+symbol\s+set|required\s+symbol\s+entry' -CaseName 'missing required symbol entry'
 
     Write-Output 'Package contract negative tests passed.'
 }
