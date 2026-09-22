@@ -97,6 +97,7 @@ $nugetConfig = Join-Path $smokeRoot 'NuGet.config'
 $clean = Join-Path $smokeRoot 'clean'
 $missing = Join-Path $smokeRoot 'missing'
 $dynamic = Join-Path $smokeRoot 'dynamic'
+$counterexample = Join-Path $smokeRoot 'counterexample'
 $toolExecutable = if ([OperatingSystem]::IsWindows()) { 'configgap.exe' } else { 'configgap' }
 $toolPath = Join-Path $install $toolExecutable
 $isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.0'
@@ -136,15 +137,41 @@ try {
     Copy-Sample -Destination $clean
     Copy-Sample -Destination $missing
     Copy-Sample -Destination $dynamic
+    Copy-Sample -Destination $counterexample
     $missingSource = Get-Content -Raw -LiteralPath (Join-Path $missing 'ConfigurationUse.cs')
     $missingSource = $missingSource.Replace('configuration["Clean:Key"]', 'configuration["Missing:Key"]')
     Set-Content -LiteralPath (Join-Path $missing 'ConfigurationUse.cs') -Value $missingSource -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $counterexample 'appsettings.json') -Value '{"Clean":{"Key":null},"Primary":null}' -Encoding utf8NoBOM
+    @'
+using Microsoft.Extensions.Configuration;
+
+namespace FixtureClean;
+
+public static class ConfigurationCounterexamples
+{
+    public static string? Read(IConfiguration configuration, string sectionName)
+    {
+        configuration.GetSection(sectionName).Bind(new Settings());
+        return configuration.GetValue<string>("Primary", configuration["Fallback"]!);
+    }
+
+    private sealed class Settings
+    {
+        public string? Value { get; set; }
+    }
+}
+'@ | Set-Content -LiteralPath (Join-Path $counterexample 'ConfigurationCounterexamples.cs') -Encoding utf8NoBOM
 
     [void](Assert-JsonCase -Name 'clean case' -Root $clean -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true)
     $missingResult = Assert-JsonCase -Name 'missing declaration case' -Root $missing -ExpectedExitCode 1 -ExpectBlocking $true -ExpectDynamic $true
     Assert-Contract ($missingResult.Output -match 'Missing:Key') 'The missing declaration case did not identify the planted key.'
     [void](Assert-JsonCase -Name 'dynamic key case' -Root $dynamic -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true)
-    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, and informational dynamic key.'
+    $counterexampleResult = Assert-JsonCase -Name 'preserved read and unknown bind case' -Root $counterexample -ExpectedExitCode 1 -ExpectBlocking $true -ExpectDynamic $true
+    $counterexampleReport = $counterexampleResult.Output | ConvertFrom-Json
+    Assert-Contract (@($counterexampleReport.actuallyReadKeys) -contains 'Fallback') 'The installed tool dropped the independently evaluated Fallback read.'
+    Assert-Contract (@($counterexampleReport.findings | Where-Object { $_.code -eq 'CG900' -and $_.source -eq 'ConfigurationCounterexamples.cs' }).Count -gt 0) 'The installed tool dropped the unknown Bind observation.'
+    Assert-Contract ($counterexampleResult.Output -match 'Fallback') 'The installed tool did not report the preserved Fallback read.'
+    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, and unknown Bind.'
 }
 finally {
     foreach ($name in $saved.Keys) {
