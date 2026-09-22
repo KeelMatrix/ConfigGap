@@ -696,6 +696,11 @@ public sealed class SemanticProbe
         var activeLocals = visitedLocals ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         if (receiver is IdentifierNameSyntax identifier)
         {
+            if (!IsConfigurationSectionType(type) && IsRootConfigurationAlias(identifier, model))
+            {
+                return [];
+            }
+
             var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
             if (symbol is ILocalSymbol local)
             {
@@ -707,12 +712,27 @@ public sealed class SemanticProbe
                 return [];
             }
 
+            if (symbol is IFieldSymbol or IPropertySymbol)
+            {
+                return [];
+            }
+
+            if (symbol is null && IsRootConfigurationAlias(identifier, model))
+            {
+                return [];
+            }
+
             return [new StringResolution(null, "dynamic-section-prefix")];
         }
 
         if (!IsConfigurationSectionType(type))
         {
-            return [new StringResolution(null, "dynamic-section-prefix")];
+            if (receiver is InvocationExpressionSyntax)
+            {
+                return [new StringResolution(null, "dynamic-section-prefix")];
+            }
+
+            return [];
         }
 
         if (receiver is InvocationExpressionSyntax invocation &&
@@ -795,6 +815,26 @@ public sealed class SemanticProbe
         type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection" ||
         type.AllInterfaces.Any(interfaceType =>
             interfaceType.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection");
+
+    private static bool IsRootConfigurationAlias(IdentifierNameSyntax identifier, SemanticModel model)
+    {
+        var declaration = identifier.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(variable =>
+                variable.Identifier.ValueText.Equals(identifier.Identifier.ValueText, StringComparison.Ordinal) &&
+                variable.SpanStart < identifier.SpanStart)
+            .OrderByDescending(variable => variable.SpanStart)
+            .FirstOrDefault();
+        if (declaration?.Initializer?.Value is not { } initializer ||
+            initializer is InvocationExpressionSyntax ||
+            !IsConfigurationType(model.GetTypeInfo(initializer).Type))
+        {
+            return false;
+        }
+
+        return initializer is MemberAccessExpressionSyntax or IdentifierNameSyntax;
+    }
 
     private static IReadOnlyList<StringResolution> CombineConfigurationPaths(
         IReadOnlyList<StringResolution> prefixes,

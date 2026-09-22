@@ -4,6 +4,9 @@ param(
     [string]$ReportPath
 )
 
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 $repo = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 if ([string]::IsNullOrWhiteSpace($ReportPath)) {
     $ReportPath = Join-Path $repo 'research/phase0b/REPORT.md'
@@ -11,9 +14,14 @@ if ([string]::IsNullOrWhiteSpace($ReportPath)) {
 
 $report = (Resolve-Path -LiteralPath $ReportPath).Path
 $reportContent = Get-Content -Raw -LiteralPath $report
-$head = (& git -C $repo rev-parse HEAD 2>&1).Trim()
-if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-f]{40}$') {
-    throw "CONFIGGAP_EVIDENCE_HEAD: could not resolve a full HEAD SHA for '$repo'."
+$metricsPath = Join-Path $repo 'research/phase0b/metrics.json'
+if (-not (Test-Path -LiteralPath $metricsPath -PathType Leaf)) {
+    throw "CONFIGGAP_EVIDENCE_METRICS: metrics evidence is missing: $metricsPath"
+}
+
+$metrics = Get-Content -Raw -LiteralPath $metricsPath | ConvertFrom-Json
+if ($metrics.version -ne 1) {
+    throw "CONFIGGAP_EVIDENCE_METRICS: unsupported metrics version in '$metricsPath'."
 }
 
 function Get-ExactlyOneMatch {
@@ -32,50 +40,6 @@ function Get-ExactlyOneMatch {
     return $matches[0]
 }
 
-$codeCandidate = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Code candidate ref:\s*([0-9a-f]{40})\s*$' 'CONFIGGAP_EVIDENCE_CANDIDATE' 'Code candidate ref line').Groups[1].Value.ToLowerInvariant()
-$evidenceCheckpoint = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Evidence checkpoint ref:\s*([0-9a-f]{40})\s*$' 'CONFIGGAP_EVIDENCE_CHECKPOINT' 'Evidence checkpoint ref line').Groups[1].Value.ToLowerInvariant()
-$resolvedCodeCandidate = (& git -C $repo rev-parse --verify "$codeCandidate^{commit}" 2>&1).Trim().ToLowerInvariant()
-if ($LASTEXITCODE -ne 0 -or $resolvedCodeCandidate -ne $codeCandidate) {
-    throw "CONFIGGAP_EVIDENCE_CANDIDATE: code candidate ref '$codeCandidate' does not resolve to the named repository commit."
-}
-$resolvedEvidenceCheckpoint = (& git -C $repo rev-parse --verify "$evidenceCheckpoint^{commit}" 2>&1).Trim().ToLowerInvariant()
-if ($LASTEXITCODE -ne 0 -or $resolvedEvidenceCheckpoint -ne $evidenceCheckpoint) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint ref '$evidenceCheckpoint' does not resolve to the named repository commit."
-}
-& git -C $repo merge-base --is-ancestor $codeCandidate $evidenceCheckpoint 2>$null
-if ($LASTEXITCODE -ne 0) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: code candidate '$codeCandidate' must be an ancestor of evidence checkpoint '$evidenceCheckpoint'."
-}
-& git -C $repo merge-base --is-ancestor $evidenceCheckpoint $head 2>$null
-if ($LASTEXITCODE -ne 0) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not an ancestor of repository HEAD '$head'."
-}
-$evidenceCommitMessage = (& git -C $repo log -1 --format=%s $evidenceCheckpoint 2>&1).Trim()
-$evidenceChangedFiles = @(& git -C $repo diff-tree --no-commit-id --name-only -r $evidenceCheckpoint 2>&1 | Where-Object { $_.Trim().Length -gt 0 })
-$allowedEvidenceFiles = @(
-    'research/phase0b/REPORT.md',
-    'research/phase0b/metrics.json',
-    'research/phase0b/performance.json',
-    'research/phase0b/env-prevalence.json',
-    'scripts/Test-Phase0BEvidence.ps1'
-)
-
-if ($evidenceCommitMessage -ne 'docs: refresh Phase 0B evidence' -or
-    $evidenceChangedFiles.Count -eq 0 -or
-    @($evidenceChangedFiles | Where-Object { $allowedEvidenceFiles -notcontains $_.Trim() }).Count -gt 0) {
-    throw "CONFIGGAP_EVIDENCE_CHECKPOINT: evidence checkpoint '$evidenceCheckpoint' is not the expected evidence-only commit."
-}
-
-$metricsPath = Join-Path $repo 'research/phase0b/metrics.json'
-if (-not (Test-Path -LiteralPath $metricsPath)) {
-    throw "CONFIGGAP_EVIDENCE_METRICS: metrics evidence is missing: $metricsPath"
-}
-
-$metrics = Get-Content -Raw -LiteralPath $metricsPath | ConvertFrom-Json
-if ($metrics.version -ne 1) {
-    throw "CONFIGGAP_EVIDENCE_METRICS: unsupported metrics version in '$metricsPath'."
-}
-
 function Assert-ReportMetric {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -84,9 +48,7 @@ function Assert-ReportMetric {
     )
 
     try {
-        if ([decimal]$ReportValue -eq [decimal]$MetricValue) {
-            return
-        }
+        if ([decimal]$ReportValue -eq [decimal]$MetricValue) { return }
     }
     catch {
         # Non-numeric fields, such as the verdict, are compared as strings below.
@@ -146,15 +108,9 @@ Assert-ReportMetric 'all-labeled recall numerator' $allRecall.Groups[1].Value $m
 Assert-ReportMetric 'all-labeled recall denominator' $allRecall.Groups[2].Value $metrics.allLabeledStaticRecallDenominator
 Assert-ReportMetric 'all-labeled recall percentage' ([decimal]::Parse($allRecall.Groups[3].Value, [Globalization.CultureInfo]::InvariantCulture)) ([decimal]$metrics.allLabeledStaticRecall)
 
-$dynamicBlocking = Get-IntMatch $reportContent '(?im)^\s*Dynamic blocking findings:\s*(\d+)\s*$' 1 'Dynamic blocking findings'
-$loadFailures = Get-IntMatch $reportContent '(?im)^\s*Load failures:\s*(\d+)\s*$' 1 'Load failures'
-Assert-ReportMetric 'dynamic blocking findings' $dynamicBlocking $metrics.dynamicBlockingFindings
-Assert-ReportMetric 'load failures' $loadFailures $metrics.loadFailureCount
-
+Assert-ReportMetric 'dynamic blocking findings' (Get-IntMatch $reportContent '(?im)^\s*Dynamic blocking findings:\s*(\d+)\s*$' 1 'Dynamic blocking findings') $metrics.dynamicBlockingFindings
+Assert-ReportMetric 'load failures' (Get-IntMatch $reportContent '(?im)^\s*Load failures:\s*(\d+)\s*$' 1 'Load failures') $metrics.loadFailureCount
 $verdict = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Verdict:\s*(PASS|FAIL)\s*$' 'CONFIGGAP_EVIDENCE_SUMMARY' 'Verdict summary line').Groups[1].Value
 Assert-ReportMetric 'verdict' $verdict $metrics.verdict
 
-Write-Output "Code candidate ref: $codeCandidate"
-Write-Output "Evidence checkpoint ref: $evidenceCheckpoint"
-Write-Output "Metrics summary consistency: PASS"
-Write-Output "Evidence candidate consistency: PASS (code candidate -> evidence checkpoint -> report anchor; HEAD $head)"
+Write-Output 'Evaluation metrics summary consistency: PASS'

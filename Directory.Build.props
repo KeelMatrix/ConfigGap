@@ -18,5 +18,29 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IsPackable>false</IsPackable>
+    <ConfigGapPackageGuard Condition="'$(ConfigGapPackageGuard)' == ''">false</ConfigGapPackageGuard>
   </PropertyGroup>
+
+  <Target Name="ValidateConfigGapPackageInputs"
+          BeforeTargets="Pack"
+          Condition="'$(ConfigGapPackageGuard)' == 'true'">
+    <PropertyGroup>
+      <_ConfigGapPublishDirectory Condition="'$(PublishDir)' != ''">$(PublishDir)</_ConfigGapPublishDirectory>
+      <_ConfigGapPayloadManifest>$(MSBuildThisFileDirectory)scripts/ExpectedPackagePayload.txt</_ConfigGapPayloadManifest>
+    </PropertyGroup>
+
+    <Error Condition="'$(_ConfigGapPublishDirectory)' == '' Or !Exists('$(_ConfigGapPublishDirectory)')"
+           Text="ConfigGap package validation requires the Release publish directory: $(_ConfigGapPublishDirectory)" />
+    <Error Condition="!Exists('$(_ConfigGapPayloadManifest)')"
+           Text="ConfigGap package validation requires the explicit payload manifest: $(_ConfigGapPayloadManifest)" />
+
+    <ItemGroup>
+      <_ConfigGapPublishFile Include="$(_ConfigGapPublishDirectory)**\*" />
+      <_ConfigGapForbiddenPublishFile Include="@(_ConfigGapPublishFile)"
+          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(RecursiveDir)%(Filename)%(Extension)', '(?i)(^|[\\/])(appsettings(?:\.[^\\/]*)?\.json|\.env(?:\.[^\\/]*)?|.*(?:secret|credential|local\.telemetry).*\.(json|config|xml)|.*\.(pfx|p12|pem|key|snk))$'))" />
+    </ItemGroup>
+
+    <Error Condition="'@(_ConfigGapForbiddenPublishFile)' != ''"
+           Text="ConfigGap package validation rejected prohibited publish input(s): @(_ConfigGapForbiddenPublishFile->'%(RecursiveDir)%(Filename)%(Extension)', ', ')." />
+  </Target>
 </Project>

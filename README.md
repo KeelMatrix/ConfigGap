@@ -14,7 +14,7 @@ The tool targets .NET 8 and exposes the `configgap` command.
 
 ## Platform support
 
-Windows has local performance and targeted test evidence. Hosted GitHub Actions run [35608970814](https://github.com/KeelMatrix/ConfigGap/actions/runs/35608970814) verified commit `3189f051` on Ubuntu, Windows, and macOS for the Release build, full tests, package, and consumer smoke; the current tip adds documentation-only changes on top of that verified commit. macOS remains unverified locally. See [platform support](docs/platform-support.md) for the matrix, reproducible command, hosted evidence, and residual uncertainty.
+Windows has local performance and targeted test evidence. The repository workflow exercises Release build, full tests, package, and consumer smoke on its configured operating-system matrix. Linux has a reproducible container check; macOS remains unverified locally. See [platform support](docs/platform-support.md) for the matrix, reproducible command, and residual uncertainty.
 
 ## First success
 

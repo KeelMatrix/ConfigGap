@@ -57,6 +57,18 @@ jobs:
           -PackagePath ./artifacts/packages/KeelMatrix.ConfigGap.0.1.0.nupkg
           -SymbolsPath ./artifacts/packages/KeelMatrix.ConfigGap.0.1.0.snupkg
 
+      - name: Run package contract regression mutations
+        shell: pwsh
+        run: >-
+          pwsh -NoProfile -File ./scripts/Test-PackageContract.ps1
+          -PackagePath ./artifacts/packages/KeelMatrix.ConfigGap.0.1.0.nupkg
+          -SymbolsPath ./artifacts/packages/KeelMatrix.ConfigGap.0.1.0.snupkg
+          -ExpectedVersion 0.1.0
+
+      - name: Test checked publication failure handling
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-ReleasePublication.ps1
+
       - name: Run the clean package-consumer smoke
         shell: pwsh
         run: >-

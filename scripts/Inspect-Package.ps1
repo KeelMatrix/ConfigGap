@@ -96,7 +96,8 @@ function Assert-ForbiddenEntries {
     param([string[]]$Names)
     $forbidden = $Names | Where-Object {
         $_ -match '(?i)(^|/)(\.git|\.env[^/]*|research|fixtures|tests|scripts|docs|artifacts|bin|obj)(/|$)' -or
-        $_ -match '(?i)(credentials|secrets|local\.telemetry|prompt-engineering|orchestration|review-process)'
+        $_ -match '(?i)(^|/)(appsettings(?:\.[^/]*)?\.json|.*(?:credentials|secrets|local\.telemetry).*|.*\.(pfx|p12|pem|key|snk))$' -or
+        $_ -match '(?i)(prompt-engineering|orchestration|review-process)'
     }
     Assert-Contract (@($forbidden).Count -eq 0) "Forbidden package entries: $($forbidden -join ', ')."
     $sourceEntries = $Names | Where-Object { $_ -match '(?i)\.(cs|csproj|props|targets|sln|user)$' }
@@ -128,15 +129,15 @@ function Inspect-ToolPackage {
         Assert-Contract ($payload.Count -gt 0) 'The tool package has no net8.0 tool payload.'
         $publishRoot = Join-Path $RepositoryRoot 'src/KeelMatrix.ConfigGap/bin/Release/net8.0/publish'
         Assert-Contract (Test-Path -LiteralPath $publishRoot -PathType Container) "The Release publish directory is missing: $publishRoot"
-        $expectedPayload = @('tools/net8.0/any/DotnetToolSettings.xml') + @(
-            Get-ChildItem -LiteralPath $publishRoot -Recurse -File |
-                ForEach-Object {
-                    $relative = [IO.Path]::GetRelativePath($publishRoot, $_.FullName).Replace('\', '/')
-                    if ($relative -notin @('KeelMatrix.ConfigGap.exe', 'KeelMatrix.ConfigGap')) {
-                        "tools/net8.0/any/$relative"
-                    }
-                }
-        ) | Sort-Object
+        $manifestPath = Join-Path $RepositoryRoot 'scripts/ExpectedPackagePayload.txt'
+        Assert-Contract (Test-Path -LiteralPath $manifestPath -PathType Leaf) "The explicit package payload manifest is missing: $manifestPath"
+        $expectedPayload = @(Get-Content -LiteralPath $manifestPath |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and -not $_.StartsWith('#', [StringComparison]::Ordinal) } |
+            ForEach-Object { "tools/net8.0/any/$($_.Replace('\', '/'))" } |
+            Sort-Object -Unique)
+        Assert-Contract ($expectedPayload.Count -gt 0) 'The explicit package payload manifest is empty.'
+        Assert-Contract ($expectedPayload -contains 'tools/net8.0/any/DotnetToolSettings.xml') 'The explicit package payload manifest must include DotnetToolSettings.xml.'
         Assert-Contract (@(Compare-Object $expectedPayload ($payload | Sort-Object)).Count -eq 0) 'The tool payload differs from the explicit expected public artifact set.'
         Assert-Contract ($payload -contains 'tools/net8.0/any/KeelMatrix.ConfigGap.dll') 'The shipping tool assembly is missing.'
         Assert-Contract ($payload -contains 'tools/net8.0/any/KeelMatrix.ConfigGap.runtimeconfig.json') 'The tool runtime configuration is missing.'
@@ -167,16 +168,41 @@ function Inspect-ToolPackage {
 }
 
 function Inspect-SymbolPackage {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [string]$ExpectedRepositoryCommit
+    )
     Assert-Contract (Test-Path -LiteralPath $Path -PathType Leaf) "Symbol package was not found: $Path"
     Assert-Contract ((Split-Path -Leaf $Path) -ceq "KeelMatrix.ConfigGap.$ExpectedVersion.snupkg") 'The symbol package filename does not match its version.'
     $archive = Open-Archive -Path $Path
     try {
         $names = Get-NormalizedNames -Archive $archive
         Assert-ForbiddenEntries -Names $names
-        $pdbs = @($names | Where-Object { $_ -match '(?i)\.pdb$' })
-        Assert-Contract ($pdbs.Count -gt 0) 'The symbol package contains no PDB files.'
+        $expectedEntries = @(
+            '_rels/.rels',
+            '[Content_Types].xml',
+            'KeelMatrix.ConfigGap.nuspec',
+            'core-properties-entry',
+            'tools/net8.0/any/KeelMatrix.ConfigGap.Core.pdb',
+            'tools/net8.0/any/KeelMatrix.ConfigGap.pdb'
+        )
+        $corePropertyEntries = @($names | Where-Object { $_ -match '^package/services/metadata/core-properties/[0-9a-f]{32}\.psmdcp$' })
+        Assert-Contract ($corePropertyEntries.Count -eq 1) 'The symbol package must contain exactly one NuGet core-properties entry.'
+        $expectedEntries[3] = $corePropertyEntries[0]
+        Assert-Contract (@(Compare-Object ($expectedEntries | Sort-Object) ($names | Sort-Object)).Count -eq 0) 'The symbol package entries differ from the explicit expected symbol set.'
+        foreach ($required in @('tools/net8.0/any/KeelMatrix.ConfigGap.Core.pdb', 'tools/net8.0/any/KeelMatrix.ConfigGap.pdb')) {
+            Assert-Contract ($names -contains $required) "Required symbol entry '$required' is missing."
+        }
         Assert-Contract (@($names | Where-Object { $_ -match '(?i)\.(cs|csproj|props|targets)$' }).Count -eq 0) 'The symbol package contains source or project files.'
+        $nuspec = [xml](Get-EntryText -Archive $archive -Name 'KeelMatrix.ConfigGap.nuspec')
+        $metadata = $nuspec.package.metadata
+        Assert-Contract ($metadata.id -ceq 'KeelMatrix.ConfigGap') 'Symbol package metadata has the wrong id.'
+        Assert-Contract ($metadata.version -ceq $ExpectedVersion) 'Symbol package metadata has the wrong version.'
+        Assert-Contract ($metadata.packageTypes.packageType.name -ceq 'SymbolsPackage') 'Symbol package metadata is missing its SymbolsPackage type.'
+        Assert-Contract ($metadata.repository.url -ceq 'https://github.com/KeelMatrix/ConfigGap') 'Symbol package repository metadata is inconsistent.'
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedRepositoryCommit)) {
+            Assert-Contract ($metadata.repository.commit -ceq $ExpectedRepositoryCommit) 'Symbol package repository commit metadata is inconsistent.'
+        }
         Write-Output "Symbol package entries ($($names.Count)):`n$($names -join "`n")"
     }
     finally {
@@ -187,5 +213,5 @@ function Inspect-SymbolPackage {
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 Assert-ProjectPackability -RepositoryRoot $repositoryRoot
 Inspect-ToolPackage -Path $PackagePath -RepositoryRoot $repositoryRoot
-Inspect-SymbolPackage -Path $SymbolsPath
+Inspect-SymbolPackage -Path $SymbolsPath -ExpectedRepositoryCommit $ExpectedRepositoryCommit
 Write-Output 'Package inspection passed.'

@@ -36,12 +36,25 @@ Assert-Contract ($changelog -match '(?m)^## \[Unreleased\]\s*$') 'CHANGELOG.md m
 $escapedVersion = [regex]::Escape($Version)
 $match = [regex]::Match($changelog, "(?ms)^## \[$escapedVersion\]\s*-\s*(?<date>\d{4}-\d{2}-\d{2})\s*$")
 Assert-Contract $match.Success "CHANGELOG.md has no dated [$Version] release entry."
+$dateText = $match.Groups['date'].Value
+$parsedDate = [datetime]::MinValue
+Assert-Contract ([datetime]::TryParseExact(
+        $dateText,
+        'yyyy-MM-dd',
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::None,
+        [ref]$parsedDate) -and $parsedDate.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture) -ceq $dateText) "Release date '$dateText' is not a valid calendar date."
 $sectionStart = $match.Index + $match.Length
 $nextSection = [regex]::Match($changelog.Substring($sectionStart), '(?m)^## \[')
 $section = if ($nextSection.Success) { $changelog.Substring($sectionStart, $nextSection.Index) } else { $changelog.Substring($sectionStart) }
 Assert-Contract ($section -notmatch '(?i)\b(Unreleased|Planned|TBD|not yet published)\b') "CHANGELOG.md still describes [$Version] as not final."
 
 if ($FirstRelease) {
+    $categories = @([regex]::Matches($section, '(?m)^###\s+(?<name>\S(?:.*\S)?)\s*$') | ForEach-Object { $_.Groups['name'].Value.Trim() })
+    Assert-Contract ($categories.Count -eq 1 -and $categories[0] -ceq 'Added') 'A first-release changelog entry must contain exactly one Added section and no other categories.'
+    $addedMatch = [regex]::Match($section, '(?ms)^###\s+Added\s*$(?<body>.*)$')
+    Assert-Contract $addedMatch.Success 'A first-release changelog entry must contain an Added section.'
+    Assert-Contract ($addedMatch.Groups['body'].Value -match '(?m)^\s*[-*+]\s+\S') 'A first-release Added section must contain at least one non-empty bullet.'
     $markers = @('now', 'no longer', 'previously', 'formerly', 'used to', 'fixed', 'fixes', 'corrected', 'resolved', 'addressed', 'this removes', 'this fixes', 'changed from')
     foreach ($marker in $markers) {
         Assert-Contract ($section -notmatch "(?i)\b$([regex]::Escape($marker))\b") "First-release changelog entry contains remediation-history wording: '$marker'."

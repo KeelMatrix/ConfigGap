@@ -63,8 +63,8 @@ $inspector = Join-Path $PSScriptRoot 'Inspect-Package.ps1'
 
 try {
     Assert-Contract ($commit -match '^[0-9a-fA-F]{40}$') 'A full repository commit is required for deterministic package evidence.'
-    Assert-Contract (Test-Path -LiteralPath $PackagePath -PathType Leaf) "Candidate package was not found: $PackagePath"
-    Assert-Contract (Test-Path -LiteralPath $SymbolsPath -PathType Leaf) "Candidate symbols were not found: $SymbolsPath"
+    Assert-Contract (Test-Path -LiteralPath $PackagePath -PathType Leaf) "Package artifact was not found: $PackagePath"
+    Assert-Contract (Test-Path -LiteralPath $SymbolsPath -PathType Leaf) "Symbol artifact was not found: $SymbolsPath"
     New-Item -ItemType Directory -Path $first, $second -Force | Out-Null
     $pack = @('pack', $project, '-c', 'Release', '--no-build', '--no-restore', '--include-symbols', '-p:SymbolPackageFormat=snupkg', "-p:PackageVersion=$ExpectedVersion", "-p:SourceRevisionId=$commit", "-p:RepositoryCommit=$commit")
     Invoke-Checked -File 'dotnet' -Arguments ($pack + @('-o', $first))

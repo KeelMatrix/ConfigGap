@@ -5,7 +5,7 @@ namespace KeelMatrix.ConfigGap.Probe;
 
 /// <summary>
 /// Resolves the deliberately narrow local-helper forwarding shape used by the
-/// Phase 0 probe. This is not general interprocedural dataflow: only a local
+/// Evaluation harness. This is not general interprocedural dataflow: only a local
 /// string parameter forwarded directly into one supported access is followed,
 /// and only two helper hops are allowed.
 /// </summary>

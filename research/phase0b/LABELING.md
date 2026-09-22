@@ -18,4 +18,4 @@ The selected project scope is a reproducible analyzability boundary, not a corpu
 - `https://github.com/Boeschenstein/aspnetcore3-configuration` — checked-out commit had no checked-in `appsettings*.json` surface.
 - `https://github.com/thangchung/clean-architecture-dotnet` — the selected commit pins `6.0.100-preview.5.21302.13`, which is not installed on the validation machine; MSBuildWorkspace could not produce trustworthy project analysis.
 - `https://github.com/LincolnLink/ASP.NET-Core-Eduardo-Pires-WebApi` — the selected repository project is under a nested `global.json` pin to SDK `5.0.408`, which is not installed on the validation machine; MSBuildWorkspace could not produce trustworthy project analysis.
-- `https://github.com/dotnet-podcasts/dotnet-podcasts` — the shallow checkout at the candidate head was incomplete and did not provide a verifiable appsettings-backed application corpus.
+- `https://github.com/dotnet-podcasts/dotnet-podcasts` — the shallow checkout at the pinned commit was incomplete and did not provide a verifiable appsettings-backed application corpus.

@@ -94,6 +94,20 @@ jobs:
           if (@(Compare-Object $expected $actual).Count -ne 0) { throw "Unexpected artifact set: $($actual -join ', ')" }
           pwsh -NoProfile -File ./scripts/Verify-PackageContract.ps1 -PackagePath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg" -SymbolsPath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg" -ExpectedVersion $env:RELEASE_VERSION -ExpectedRepositoryCommit $env:RELEASE_COMMIT
 
+      - name: Run package contract regression mutations
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: >-
+          pwsh -NoProfile -File ./scripts/Test-PackageContract.ps1
+          -PackagePath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg"
+          -SymbolsPath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg"
+          -ExpectedVersion $env:RELEASE_VERSION
+
+      - name: Test checked publication failure handling
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-ReleasePublication.ps1
+
       - name: Exchange OIDC credential with NuGet Trusted Publishing
         id: nuget-login
         uses: NuGet/login@v1
@@ -106,5 +120,6 @@ jobs:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          dotnet nuget push "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-          dotnet nuget push "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          pwsh -NoProfile -File ./scripts/Publish-PackageArtifacts.ps1 `
+            -PackagePath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.nupkg" `
+            -SymbolsPath "./artifacts/packages/KeelMatrix.ConfigGap.$env:RELEASE_VERSION.snupkg"

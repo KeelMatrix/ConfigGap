@@ -44,6 +44,59 @@ try {
     $plannedOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
     Assert-Contract ($LASTEXITCODE -ne 0 -and $plannedOutput -match 'no dated') 'The release contract accepted a changelog with only Unreleased.'
 
+    $negativeCases = @(
+        @{
+            Name = 'impossible date'
+            Text = @'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-99-99
+
+### Added
+
+- Static analysis for declared .NET configuration usage.
+'@
+            Pattern = 'valid calendar date'
+        },
+        @{
+            Name = 'empty release entry'
+            Text = @'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-19
+'@
+            Pattern = 'Added section'
+        },
+        @{
+            Name = 'disallowed category'
+            Text = @'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-19
+
+### Added
+
+- Static analysis for declared .NET configuration usage.
+
+### Changed
+
+- A durable release contract.
+'@
+            Pattern = 'exactly one Added'
+        }
+    )
+    foreach ($case in $negativeCases) {
+        $case.Text | Set-Content -LiteralPath (Join-Path $fixture 'CHANGELOG.md') -Encoding utf8NoBOM
+        $negativeOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
+        Assert-Contract ($LASTEXITCODE -ne 0 -and $negativeOutput -match $case.Pattern) "The release contract accepted the $($case.Name) case."
+    }
+
     @'
 # Changelog
 
@@ -68,7 +121,7 @@ try {
 '@ | Set-Content -LiteralPath (Join-Path $fixture 'Directory.Build.props') -Encoding utf8NoBOM
     $mismatchOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -TagName v0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
     Assert-Contract ($LASTEXITCODE -ne 0 -and $mismatchOutput -match 'expected') 'The release contract accepted a source version mismatch.'
-    Write-Output 'Release contract tests passed: Unreleased rejection, finalized match, and version mismatch rejection.'
+    Write-Output 'Release contract tests passed: Unreleased rejection, impossible-date rejection, empty-entry rejection, disallowed-category rejection, finalized match, and version mismatch rejection.'
 }
 finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }

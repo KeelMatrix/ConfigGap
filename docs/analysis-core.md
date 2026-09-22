@@ -1,6 +1,6 @@
 # Analysis core
 
-The reusable analysis core is the non-packable `KeelMatrix.ConfigGap.Core` project. `ConfigGap.Probe` is a thin host that keeps the hand-labeled Phase 0 fixture, corpus, and performance harness runnable.
+The reusable analysis core is the non-packable `KeelMatrix.ConfigGap.Core` project. `ConfigGap.Probe` is a thin host that keeps the hand-labeled evaluation fixture, corpus, and performance harness runnable.
 
 ## Supported evidence
 

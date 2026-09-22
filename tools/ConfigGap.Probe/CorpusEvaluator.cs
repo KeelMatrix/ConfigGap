@@ -144,6 +144,16 @@ internal static class CorpusEvaluator
                 ? SemanticProbe.AnalyzeProjectAsync(solutionPath, clonePath, timeout.Token)
                 : SemanticProbe.AnalyzeAsync(solutionPath, clonePath, timeout.Token);
             var observations = await observationsTask.WaitAsync(RepositoryTimeout);
+            if (observations.Count == 0 ||
+                (labeledStatic.Count > 0 && !observations.Any(observation =>
+                    observation.Key is not null && labeledStatic.Contains(KeyNormalizer.Normalize(observation.Key)))))
+            {
+                // A completion without a labeled static key is not an accepted analysis result.
+                // Reopen the selected project once to avoid retaining a transient workspace load.
+                observations = await (solutionPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                    ? SemanticProbe.AnalyzeProjectAsync(solutionPath, clonePath, timeout.Token)
+                    : SemanticProbe.AnalyzeAsync(solutionPath, clonePath, timeout.Token)).WaitAsync(RepositoryTimeout);
+            }
             var analyzerStatic = observations
                 .Where(observation => observation.Key is not null)
                 .Select(observation => KeyNormalizer.Normalize(observation.Key!))
@@ -327,7 +337,7 @@ internal static class CorpusEvaluator
 
     private static void PrintReport(CorpusEvaluationReport report, string outputPath, TimeSpan duration)
     {
-        Console.WriteLine("ConfigGap Phase 0B corpus evaluation");
+        Console.WriteLine("ConfigGap labeled-corpus evaluation");
         Console.WriteLine("Repository                       Status       TP/blocking  Supported recall  All-key recall  Dynamic blocking");
         Console.WriteLine("------------------------------  -----------  -----------  -----------------  --------------  ----------------");
         foreach (var item in report.Repositories)

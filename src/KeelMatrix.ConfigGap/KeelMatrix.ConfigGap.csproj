@@ -22,6 +22,7 @@
     <PackageReleaseNotes>Static analysis for gaps between declared and statically used .NET configuration.</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ConfigGapPackageGuard>true</ConfigGapPackageGuard>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <Deterministic>true</Deterministic>

@@ -33,6 +33,8 @@ Assert-Contract ($workflow -match 'KEELMATRIX_NO_TELEMETRY:\s*''1''') 'Release t
 Assert-Contract ($workflow -match 'Invoke-VulnerabilityAudit\.ps1') 'Release workflow must run the vulnerability gate.'
 Assert-Contract ($workflow -match 'Verify-ReleaseContract\.ps1') 'Release workflow must run the shared release contract check.'
 Assert-Contract ($workflow -match 'Verify-PackageContract\.ps1') 'Release workflow must validate package metadata.'
+Assert-Contract ($workflow -match 'Publish-PackageArtifacts\.ps1') 'Release workflow must use the checked publication helper.'
+Assert-Contract ($workflow -notmatch '--skip-duplicate') 'Release workflow must not treat duplicate skipping as publication proof.'
 
 $actions = [regex]::Matches($workflow, '(?m)^\s+uses:\s+(?<action>[^\s]+)\s*$') | ForEach-Object { $_.Groups['action'].Value }
 Assert-Contract ($actions.Count -gt 0) 'Workflow has no actions.'
