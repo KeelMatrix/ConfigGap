@@ -818,12 +818,16 @@ public sealed class SemanticProbe
 
     private static bool IsRootConfigurationAlias(IdentifierNameSyntax identifier, SemanticModel model)
     {
+        var containingSymbol = model.GetEnclosingSymbol(identifier.SpanStart);
         var declaration = identifier.SyntaxTree.GetRoot()
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Where(variable =>
                 variable.Identifier.ValueText.Equals(identifier.Identifier.ValueText, StringComparison.Ordinal) &&
-                variable.SpanStart < identifier.SpanStart)
+                variable.SpanStart < identifier.SpanStart &&
+                SymbolEqualityComparer.Default.Equals(
+                    containingSymbol,
+                    model.GetEnclosingSymbol(variable.SpanStart)))
             .OrderByDescending(variable => variable.SpanStart)
             .FirstOrDefault();
         if (declaration?.Initializer?.Value is not { } initializer ||
