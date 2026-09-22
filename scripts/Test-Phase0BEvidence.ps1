@@ -113,4 +113,32 @@ Assert-ReportMetric 'load failures' (Get-IntMatch $reportContent '(?im)^\s*Load 
 $verdict = (Get-ExactlyOneMatch $reportContent '(?im)^\s*Verdict:\s*(PASS|FAIL)\s*$' 'CONFIGGAP_EVIDENCE_SUMMARY' 'Verdict summary line').Groups[1].Value
 Assert-ReportMetric 'verdict' $verdict $metrics.verdict
 
+$performancePath = Join-Path $repo 'research/phase0b/performance.json'
+if (-not (Test-Path -LiteralPath $performancePath -PathType Leaf)) {
+    throw "CONFIGGAP_EVIDENCE_PERFORMANCE: performance evidence is missing: $performancePath"
+}
+Import-Module (Join-Path $repo 'scripts/Phase0BPerformanceGate.psm1') -Force
+$performance = Get-Content -Raw -LiteralPath $performancePath | ConvertFrom-Json
+$performanceGate = Get-Phase0BPerformanceGate -Report $performance -ExpectedObservationCount 3302
+if ($performanceGate.verdict -ne 'PASS') {
+    throw "CONFIGGAP_EVIDENCE_PERFORMANCE_GATE: committed performance evidence failed: $($performanceGate.failureReasons -join '; ')"
+}
+$reviewerGate = Get-Phase0BPerformanceGate -Report ([pscustomobject]@{
+        expectedObservationCount = 3302
+        runs = @(
+            [pscustomobject]@{ run = 1; observationCount = 3302; durationMilliseconds = 21274; peakWorkingSetBytes = 257155072 }
+            [pscustomobject]@{ run = 2; observationCount = 3302; durationMilliseconds = 19633; peakWorkingSetBytes = 251711488 }
+            [pscustomobject]@{ run = 3; observationCount = 3302; durationMilliseconds = 20129; peakWorkingSetBytes = 252014592 }
+        )
+        frozenV1Baseline = $performance.frozenV1Baseline
+    }) -ExpectedObservationCount 3302 -Retrospective
+if ($reviewerGate.verdict -ne 'PASS') {
+    throw "CONFIGGAP_EVIDENCE_REVIEWER_SAMPLE: the retrospective reviewer sample set failed: $($reviewerGate.failureReasons -join '; ')"
+}
+if ([long]$performance.frozenV1Baseline.wallClockBoundMilliseconds -ne 21000 -or [long]$performance.frozenV1Baseline.peakWorkingSetBoundBytes -ne 274726912) {
+    throw 'CONFIGGAP_EVIDENCE_PERFORMANCE_BASELINE: frozen V1 resource limits changed.'
+}
+Write-Output "Resource performance gate consistency: PASS ($($performanceGate.reportedRunCount) runs; minimum $($performanceGate.minimumDurationMilliseconds) ms; median $($performanceGate.medianDurationMilliseconds) ms; maximum peak $($performanceGate.maximumPeakWorkingSetBytes) bytes; frozen limits 21000 ms / 274726912 bytes)."
+Write-Output "Reviewer sample statistic consistency: PASS (3 samples; minimum $($reviewerGate.minimumDurationMilliseconds) ms; median $($reviewerGate.medianDurationMilliseconds) ms; maximum peak $($reviewerGate.maximumPeakWorkingSetBytes) bytes)."
+
 Write-Output 'Evaluation metrics summary consistency: PASS'

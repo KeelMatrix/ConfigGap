@@ -6,7 +6,7 @@ This page records the platform evidence for the documented ConfigGap v1 workspac
 
 | Platform | Status | Evidence and boundary |
 | --- | --- | --- |
-| Windows | Locally exercised | The evaluation performance protocol and targeted core-test rerun passed on Windows. The report records the exact environment and measured bound. |
+| Windows | Locally exercised | The five-run evaluation performance protocol and targeted core-test rerun passed on Windows. The report records every raw sample, the statistic, exact environment, frozen limits, and cleanup state. |
 | Linux | Verified | The official `mcr.microsoft.com/dotnet/sdk:8.0` image passed restore, Release build, the full test suite, package creation, and clean/missing/dynamic consumer smoke. The exact image digest and step timings are recorded in the evaluation report. |
 | macOS | Expected when workspace loading works, not verified locally | No local macOS SDK/MSBuild/Roslyn run was available. macOS support is not claimed as independently verified. |
 

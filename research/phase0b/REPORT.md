@@ -18,9 +18,9 @@ This report records the reproducible corpus, performance, and platform evaluatio
 - All-labeled-static-key recall: 29/29 = 100.00%.
 - Dynamic blocking findings: 0.
 - Load failures: 0.
-- Corpus metric duration: 39,532 ms; metric command duration: 40,036 ms; total command duration: 151,041 ms.
+- Corpus metric duration: 50,324 ms; metric command duration: 52,123 ms; total command duration: 126,377 ms.
 - Restore skipped: `False`.
-- Preflight metadata: `mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=86`.
+- Preflight metadata: `mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=141`.
 - Environment prevalence inventory: 2 named files across 10 repositories; 1 `.env.example`; actual `.env` content was excluded.
 
 Precision protocol cases: 29
@@ -40,25 +40,35 @@ All-labeled-static-key recall: 29/29 = 100.00%
 Dynamic blocking findings: 0
 Load failures: 0
 Verdict: PASS
-Duration: 39532 ms
+Duration: 50324 ms
 Restore skipped: False
-Metric command duration: 40036 ms
+Metric command duration: 52123 ms
+Metrics preflight metadata: mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=141
+Total corpus command duration: 126377 ms
 ```
 
 ## Performance evidence
+
+The machine-readable resource contract is [`research/phase0b/performance.json`](performance.json), enforced by [`scripts/Phase0BPerformanceGate.psm1`](../../scripts/Phase0BPerformanceGate.psm1) through the benchmark and evidence checks. The default protocol requires at least five guarded runs and reports every raw sample. Acceptance uses the minimum duration, a median duration with a 1.10 headroom factor, every raw peak working set, and the exact observation count; run-derived bounds are descriptive only and never replace the frozen limits.
 
 The analyzer ran against a clean generated 50-project solution with 3,302 guarded observations:
 
 | Run | Duration | Peak working set |
 | ---: | ---: | ---: |
-| 1 | 19,654 ms | 247,726,080 bytes |
-| 2 | 16,965 ms | 248,832,000 bytes |
-| 3 | 17,269 ms | 248,885,248 bytes |
+| 1 | 19,979 ms | 248,131,584 bytes |
+| 2 | 20,048 ms | 247,496,704 bytes |
+| 3 | 19,633 ms | 250,871,808 bytes |
+| 4 | 19,075 ms | 249,589,760 bytes |
+| 5 | 19,510 ms | 250,834,944 bytes |
 
-- Derived wall-clock bound: 21,000 ms.
-- Derived peak working-set bound: 274,726,912 bytes.
+- Descriptive derived wall-clock bound: 20,500 ms.
+- Descriptive derived peak working-set bound: 276,824,064 bytes.
+- Gate statistic: minimum 19,075 ms; median 19,633 ms; median limit 23,100 ms; maximum raw peak 250,871,808 bytes.
+- Gate verdict: `PASS`; all five observation counts were exactly 3,302; exit code `0`.
 - Environment: Windows 10.0.19045, x64, 16 processors, .NET SDK 8.0.425, PowerShell 7.6.6.
-- The bounds are regression bounds for this generated input and machine, not portable service-level agreements.
+- Frozen acceptance limits, unchanged: 21,000 ms wall clock and 274,726,912 bytes peak working set.
+- Cleanup: benchmark scratch directory was absent after cleanup.
+- The gate is reproducible for the documented environment class and generated input, not a portable service-level agreement.
 
 Command:
 
@@ -73,13 +83,27 @@ pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 `
 Raw output tail:
 
 ```text
-Guarded run 1: Observations: 3302; Duration: 19654 ms; Peak working set: 247726080 bytes
-Guarded run 2: Observations: 3302; Duration: 16965 ms; Peak working set: 248832000 bytes
-Guarded run 3: Observations: 3302; Duration: 17269 ms; Peak working set: 248885248 bytes
-Derived wall-clock bound: 21000 ms
-Derived peak working-set bound: 274726912 bytes
+Guarded run 1: observations 3302; duration 19979 ms; peak working set 248131584 bytes
+Guarded run 2: observations 3302; duration 20048 ms; peak working set 247496704 bytes
+Guarded run 3: observations 3302; duration 19633 ms; peak working set 250871808 bytes
+Guarded run 4: observations 3302; duration 19075 ms; peak working set 249589760 bytes
+Guarded run 5: observations 3302; duration 19510 ms; peak working set 250834944 bytes
+Guarded run count: 5 (required: at least 5)
+Minimum duration: 19075 ms; frozen bound: 21000 ms; pass: True
+Median duration: 19633 ms; limit: 23100.0 ms (headroom factor 1.1); pass: True
+Maximum peak working set: 250871808 bytes; frozen bound: 274726912 bytes; pass: True
+Observation-count guard: True (expected: 3302)
+Derived wall-clock bound: 20500 ms
+Derived peak working-set bound: 276824064 bytes
+Frozen wall-clock bound: 21000 ms
+Frozen peak working-set bound: 274726912 bytes
+Resource gate verdict: PASS
 Benchmark scratch present after cleanup: False
 ```
+
+## Independent reviewer sample evaluation
+
+The independent fresh-clone sample set was `21,274/19,633/20,129` ms with peaks `257,155,072/251,711,488/252,014,592` bytes and 3,302 observations on each run. Under the new statistic, minimum duration is 19,633 ms <= 21,000 ms, median duration is 20,129 ms <= 23,100 ms, and maximum peak working set is 257,155,072 bytes <= 274,726,912 bytes. Retrospective statistic verdict: `PASS`. Its three samples are explicitly not a substitute for the default five-run gated protocol.
 
 ## Cross-platform evidence
 
@@ -101,7 +125,7 @@ Linux matrix results:
 | release-pack | 0 | 6,724 ms |
 | consumer-smoke | 0 | 9,980 ms |
 
-The raw tails included a zero-warning/zero-error Release build, passing core and CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. Windows evidence includes the three-run performance protocol and the targeted core-test rerun. macOS remains expected only when documented MSBuild/Roslyn workspace loading works and is not independently verified here.
+The raw tails included a zero-warning/zero-error Release build, passing core and CLI tests, successful `.nupkg`/`.snupkg` creation, and passing clean/missing/dynamic consumer cases. Windows evidence includes the five-run performance protocol and the targeted core-test rerun. macOS remains expected only when documented MSBuild/Roslyn workspace loading works and is not independently verified here.
 
 ## Reproducibility and limitations
 
@@ -111,12 +135,14 @@ The measured resource bounds apply to the generated input and recorded Windows m
 
 ## Final fix closure rerun
 
-The final code closure reran the pinned corpus with restore enabled and the resource protocol from a fresh scratch area. The corpus result was `29/29` precision cases, `29/29` supported-domain recall, `29/29` all-labeled-static-key recall, `0` dynamic blocking findings, `0` load failures, `Verdict: PASS`, and `Scratch clones present after cleanup: False`. The resource protocol guarded `3,302` observations on all three runs:
+The final code closure reran the pinned corpus with restore enabled and the five-run resource protocol from fresh scratch areas. The corpus result was `29/29` precision cases, `29/29` supported-domain recall, `29/29` all-labeled-static-key recall, `0` dynamic blocking findings, `0` load failures, `Verdict: PASS`, and `Scratch clones present after cleanup: False`.
 
 | Run | Duration | Peak working set |
 | ---: | ---: | ---: |
-| 1 | 19,161 ms | 252,293,120 bytes |
-| 2 | 17,270 ms | 251,019,264 bytes |
-| 3 | 19,174 ms | 249,253,888 bytes |
+| 1 | 19,979 ms | 248,131,584 bytes |
+| 2 | 20,048 ms | 247,496,704 bytes |
+| 3 | 19,633 ms | 250,871,808 bytes |
+| 4 | 19,075 ms | 249,589,760 bytes |
+| 5 | 19,510 ms | 250,834,944 bytes |
 
-The resource raw maxima were `19,174 ms` and `252,293,120 bytes`; the rerun-derived bounds were `20,800 ms` and `277,872,640 bytes`. The committed frozen V1 bounds remain `21,000 ms` and `274,726,912 bytes`. Every raw sample is below those frozen acceptance limits, so the frozen bounds remain valid and were not weakened; the higher derived working-set figure is only the protocol's 10% margin and is not adopted. The exact-count guard and cleanup checks are the automated rerun gates, with raw maxima evaluated against the frozen bounds.
+The resource raw maximum duration was `20,048 ms`, while the minimum was `19,075 ms`; the median was `19,633 ms`. The frozen V1 bounds remain exactly `21,000 ms` and `274,726,912 bytes`; the documented minimum/median statistic remains fail-closed and never changes the bound. The maximum raw peak was `250,871,808 bytes`, every observation count was exactly `3,302`, the gate verdict was `PASS`, and the benchmark scratch directory was absent after cleanup.

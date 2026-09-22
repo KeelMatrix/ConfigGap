@@ -47,6 +47,10 @@ jobs:
       - name: Test Release
         run: dotnet test KeelMatrix.ConfigGap.sln -c Release --no-build --no-restore --nologo
 
+      - name: Test resource gate failure path
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-Phase0BPerformance.ps1
+
       - name: Pack the shipping package
         run: dotnet pack src/KeelMatrix.ConfigGap/KeelMatrix.ConfigGap.csproj -c Release --no-build --no-restore --include-symbols -p:SymbolPackageFormat=snupkg -o ./artifacts/packages --nologo
 

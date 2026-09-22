@@ -99,6 +99,7 @@ ConfigGap loads projects through `MSBuildWorkspace`. Restore the selected soluti
 
 - [Configuration and schema](docs/configuration.md)
 - [Troubleshooting and resource limits](docs/troubleshooting.md)
+- [Analysis resource benchmark](docs/analysis-core-benchmark.md)
 - [CLI report schema](docs/configgap-cli-report.schema.json)
 - [Capabilities and limits](docs/capabilities-and-limits.md)
 - [Security policy](SECURITY.md)
