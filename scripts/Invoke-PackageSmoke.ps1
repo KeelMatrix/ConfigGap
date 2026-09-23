@@ -100,7 +100,7 @@ $dynamic = Join-Path $smokeRoot 'dynamic'
 $counterexample = Join-Path $smokeRoot 'counterexample'
 $toolExecutable = if ([OperatingSystem]::IsWindows()) { 'configgap.exe' } else { 'configgap' }
 $toolPath = Join-Path $install $toolExecutable
-$isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.0'
+$isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.1'
 $saved = @{}
 
 try {

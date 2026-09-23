@@ -100,7 +100,7 @@ public sealed class TelemetryWireContractTests
         [
             "configgap",
             "0.1.0",
-            "0.1.0",
+            "0.1.1",
             1,
             new string('a', 64),
             new string('b', 64),
