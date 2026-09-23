@@ -4,7 +4,7 @@
 
 Overall verdict: PASS
 
-Evaluation source ref: `e66ba4fafcc38206095333dd5bc2814abd719e08`
+Evaluation source ref: `d15f555a6e51465ba93921d5818a38b2f265db1b`
 
 This report records the reproducible corpus, performance, and platform evaluation for the analyzer. The labeled corpus, precision/recall thresholds, and resource limits are evaluation inputs; they are not adjusted to improve a result.
 
@@ -20,9 +20,9 @@ This report records the reproducible corpus, performance, and platform evaluatio
 - All-labeled-static-key recall: 29/29 = 100.00%.
 - Dynamic blocking findings: 0.
 - Load failures: 0.
-- Corpus metric duration: 50,324 ms; metric command duration: 52,123 ms; total command duration: 126,377 ms.
+- Corpus metric duration: 42,049 ms; metric command duration: 42,766 ms; total command duration: 112,040 ms.
 - Restore skipped: `False`.
-- Preflight metadata: `mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=141`.
+- Preflight metadata: `mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=97`.
 - Environment prevalence inventory: 2 named files across 10 repositories; 1 `.env.example`; actual `.env` content was excluded.
 
 Precision protocol cases: 29
@@ -42,11 +42,11 @@ All-labeled-static-key recall: 29/29 = 100.00%
 Dynamic blocking findings: 0
 Load failures: 0
 Verdict: PASS
-Duration: 50324 ms
+Duration: 42049 ms
 Restore skipped: False
-Metric command duration: 52123 ms
-Metrics preflight metadata: mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=141
-Total corpus command duration: 126377 ms
+Metric command duration: 42766 ms
+Metrics preflight metadata: mode=script-owned-core.longpaths; effective core.longpaths=true; LongPathsEnabled=True; scratchRootLength=97
+Total corpus command duration: 112040 ms
 ```
 
 ## Performance evidence
@@ -57,15 +57,15 @@ The analyzer ran against a clean generated 50-project solution with 3,302 guarde
 
 | Run | Duration | Peak working set |
 | ---: | ---: | ---: |
-| 1 | 19,979 ms | 248,131,584 bytes |
-| 2 | 20,048 ms | 247,496,704 bytes |
-| 3 | 19,633 ms | 250,871,808 bytes |
-| 4 | 19,075 ms | 249,589,760 bytes |
-| 5 | 19,510 ms | 250,834,944 bytes |
+| 1 | 19,798 ms | 249,401,344 bytes |
+| 2 | 18,957 ms | 250,744,832 bytes |
+| 3 | 18,997 ms | 250,253,312 bytes |
+| 4 | 18,692 ms | 251,424,768 bytes |
+| 5 | 19,125 ms | 249,229,312 bytes |
 
-- Descriptive derived wall-clock bound: 20,500 ms.
+- Descriptive derived wall-clock bound: 20,000 ms.
 - Descriptive derived peak working-set bound: 276,824,064 bytes.
-- Gate statistic: minimum 19,075 ms; median 19,633 ms; median limit 23,100 ms; maximum raw peak 250,871,808 bytes.
+- Gate statistic: minimum 18,692 ms; median 18,997 ms; median limit 23,100 ms; maximum raw peak 251,424,768 bytes.
 - Gate verdict: `PASS`; all five observation counts were exactly 3,302; exit code `0`.
 - Environment: Windows 10.0.19045, x64, 16 processors, .NET SDK 8.0.425, PowerShell 7.6.6.
 - Frozen acceptance limits, unchanged: 21,000 ms wall clock and 274,726,912 bytes peak working set.
@@ -85,17 +85,17 @@ pwsh -NoProfile -File .\scripts\Invoke-Phase0BPerformance.ps1 `
 Raw output tail:
 
 ```text
-Guarded run 1: observations 3302; duration 19979 ms; peak working set 248131584 bytes
-Guarded run 2: observations 3302; duration 20048 ms; peak working set 247496704 bytes
-Guarded run 3: observations 3302; duration 19633 ms; peak working set 250871808 bytes
-Guarded run 4: observations 3302; duration 19075 ms; peak working set 249589760 bytes
-Guarded run 5: observations 3302; duration 19510 ms; peak working set 250834944 bytes
+Guarded run 1: observations 3302; duration 19798 ms; peak working set 249401344 bytes
+Guarded run 2: observations 3302; duration 18957 ms; peak working set 250744832 bytes
+Guarded run 3: observations 3302; duration 18997 ms; peak working set 250253312 bytes
+Guarded run 4: observations 3302; duration 18692 ms; peak working set 251424768 bytes
+Guarded run 5: observations 3302; duration 19125 ms; peak working set 249229312 bytes
 Guarded run count: 5 (required: at least 5)
-Minimum duration: 19075 ms; frozen bound: 21000 ms; pass: True
-Median duration: 19633 ms; limit: 23100.0 ms (headroom factor 1.1); pass: True
-Maximum peak working set: 250871808 bytes; frozen bound: 274726912 bytes; pass: True
+Minimum duration: 18692 ms; frozen bound: 21000 ms; pass: True
+Median duration: 18997 ms; limit: 23100.0 ms (headroom factor 1.1); pass: True
+Maximum peak working set: 251424768 bytes; frozen bound: 274726912 bytes; pass: True
 Observation-count guard: True (expected: 3302)
-Derived wall-clock bound: 20500 ms
+Derived wall-clock bound: 20000 ms
 Derived peak working-set bound: 276824064 bytes
 Frozen wall-clock bound: 21000 ms
 Frozen peak working-set bound: 274726912 bytes
@@ -141,10 +141,10 @@ The pinned corpus was run with restore enabled and the five-run resource protoco
 
 | Run | Duration | Peak working set |
 | ---: | ---: | ---: |
-| 1 | 19,979 ms | 248,131,584 bytes |
-| 2 | 20,048 ms | 247,496,704 bytes |
-| 3 | 19,633 ms | 250,871,808 bytes |
-| 4 | 19,075 ms | 249,589,760 bytes |
-| 5 | 19,510 ms | 250,834,944 bytes |
+| 1 | 19,798 ms | 249,401,344 bytes |
+| 2 | 18,957 ms | 250,744,832 bytes |
+| 3 | 18,997 ms | 250,253,312 bytes |
+| 4 | 18,692 ms | 251,424,768 bytes |
+| 5 | 19,125 ms | 249,229,312 bytes |
 
-The resource raw maximum duration was `20,048 ms`, while the minimum was `19,075 ms`; the median was `19,633 ms`. The frozen V1 bounds remain exactly `21,000 ms` and `274,726,912 bytes`; the documented minimum/median statistic remains fail-closed and never changes the bound. The maximum raw peak was `250,871,808 bytes`, every observation count was exactly `3,302`, the gate verdict was `PASS`, and the benchmark scratch directory was absent after cleanup.
+The resource raw maximum duration was `19,798 ms`, while the minimum was `18,692 ms`; the median was `18,997 ms`. The frozen V1 bounds remain exactly `21,000 ms` and `274,726,912 bytes`; the documented minimum/median statistic remains fail-closed and never changes the bound. The maximum raw peak was `251,424,768 bytes`, every observation count was exactly `3,302`, the gate verdict was `PASS`, and the benchmark scratch directory was absent after cleanup.
