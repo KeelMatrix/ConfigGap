@@ -65,7 +65,7 @@ public sealed class ProbeReport
     public int Version { get; set; } = 1;
     public string Analyzer { get; set; } = "MSBuildWorkspace/Roslyn semantic probe";
     public string KeyNormalization { get; set; } = ": and __ are equivalent; matching is case-insensitive";
-    public string SupportedStaticResolution { get; set; } = "literals, const values, static concatenations, static interpolations, direct interface-typed configuration receivers, statically resolved aliases to known root configuration properties or fields, bounded local IConfigurationSection aliases without reassignment, and bounded same-compilation literal/const propagation through direct string-parameter helper forwarding (at most two hops)";
+    public string SupportedStaticResolution { get; set; } = "literals, const values, static concatenations, static interpolations, configuration receivers with proven root provenance, proven local/field/property aliases, bounded local IConfigurationSection aliases without reassignment, and bounded same-compilation literal/const propagation through direct string-parameter helper forwarding (at most two hops)";
     public string DynamicResolution { get; set; } = "variables, parameters, method calls, computed values, and configuration-supplied key expressions are unknown";
     public List<string> DeclarationSurfaces { get; set; } = [];
     public int PatternCount { get; set; }

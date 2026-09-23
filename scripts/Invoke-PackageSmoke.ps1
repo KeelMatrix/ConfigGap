@@ -98,6 +98,7 @@ $clean = Join-Path $smokeRoot 'clean'
 $missing = Join-Path $smokeRoot 'missing'
 $dynamic = Join-Path $smokeRoot 'dynamic'
 $counterexample = Join-Path $smokeRoot 'counterexample'
+$receiverProvenance = Join-Path $smokeRoot 'receiver-provenance'
 $toolExecutable = if ([OperatingSystem]::IsWindows()) { 'configgap.exe' } else { 'configgap' }
 $toolPath = Join-Path $install $toolExecutable
 $isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.1'
@@ -138,6 +139,7 @@ try {
     Copy-Sample -Destination $missing
     Copy-Sample -Destination $dynamic
     Copy-Sample -Destination $counterexample
+    Copy-Sample -Destination $receiverProvenance
     $missingSource = Get-Content -Raw -LiteralPath (Join-Path $missing 'ConfigurationUse.cs')
     $missingSource = $missingSource.Replace('configuration["Clean:Key"]', 'configuration["Missing:Key"]')
     Set-Content -LiteralPath (Join-Path $missing 'ConfigurationUse.cs') -Value $missingSource -Encoding utf8NoBOM
@@ -161,6 +163,36 @@ public static class ConfigurationCounterexamples
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $counterexample 'ConfigurationCounterexamples.cs') -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $receiverProvenance 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ProvenRootRead":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null}}' -Encoding utf8NoBOM
+    @'
+using Microsoft.Extensions.Configuration;
+
+namespace FixtureClean;
+
+public static class ReceiverProvenance
+{
+    private static IConfigurationRoot Root { get; } = null!;
+    private static IConfiguration SectionProperty => Root.GetSection("Payments");
+    private static IConfiguration SectionField = Root.GetSection("Payments");
+
+    public static string? ParameterRootOnly() => ReadParameterRootOnly(Root.GetSection("Payments"));
+    public static string? ParameterSectionOnly() => ReadParameterSectionOnly(Root.GetSection("Payments"));
+    public static string? PropertyRootOnly() => SectionProperty["PropertyRootOnly"];
+    public static string? PropertySectionOnly() => SectionProperty["PropertySectionOnly"];
+    public static string? FieldRootOnly() => SectionField["FieldRootOnly"];
+    public static string? FieldSectionOnly() => SectionField["FieldSectionOnly"];
+
+    public static string? ProvenRootAlias()
+    {
+        IConfiguration alias = Root;
+        return ReadProvenRoot(alias);
+    }
+
+    private static string? ReadParameterRootOnly(IConfiguration configuration) => configuration["ParameterRootOnly"];
+    private static string? ReadParameterSectionOnly(IConfiguration configuration) => configuration["ParameterSectionOnly"];
+    private static string? ReadProvenRoot(IConfiguration configuration) => configuration["ProvenRootRead"];
+}
+'@ | Set-Content -LiteralPath (Join-Path $receiverProvenance 'ReceiverProvenance.cs') -Encoding utf8NoBOM
 
     [void](Assert-JsonCase -Name 'clean case' -Root $clean -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true)
     $missingResult = Assert-JsonCase -Name 'missing declaration case' -Root $missing -ExpectedExitCode 1 -ExpectBlocking $true -ExpectDynamic $true
@@ -171,7 +203,16 @@ public static class ConfigurationCounterexamples
     Assert-Contract (@($counterexampleReport.actuallyReadKeys) -contains 'Fallback') 'The installed tool dropped the independently evaluated Fallback read.'
     Assert-Contract (@($counterexampleReport.findings | Where-Object { $_.code -eq 'CG900' -and $_.source -eq 'ConfigurationCounterexamples.cs' }).Count -gt 0) 'The installed tool dropped the unknown Bind observation.'
     Assert-Contract ($counterexampleResult.Output -match 'Fallback') 'The installed tool did not report the preserved Fallback read.'
-    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, and unknown Bind.'
+    $receiverResult = Assert-JsonCase -Name 'receiver provenance case' -Root $receiverProvenance -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true
+    $receiverReport = $receiverResult.Output | ConvertFrom-Json
+    $receiverFindings = @($receiverReport.findings | Where-Object { $_.source -eq 'ReceiverProvenance.cs' })
+    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG900' }).Count -eq 6) 'The installed tool did not report all six unproven parameter/property/field receivers as CG900.'
+    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG001' }).Count -eq 0) 'The installed tool invented a blocking root key for an unproven receiver.'
+    foreach ($key in @('ParameterRootOnly', 'ParameterSectionOnly', 'PropertyRootOnly', 'PropertySectionOnly', 'FieldRootOnly', 'FieldSectionOnly')) {
+        Assert-Contract (@($receiverReport.actuallyReadKeys) -notcontains $key) "The installed tool incorrectly reported '$key' as a root read."
+    }
+    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ProvenRootRead') 'The installed tool did not preserve a helper parameter passed a proven-root alias.'
+    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, unknown Bind, and unproven receiver provenance.'
 }
 finally {
     foreach ($name in $saved.Keys) {

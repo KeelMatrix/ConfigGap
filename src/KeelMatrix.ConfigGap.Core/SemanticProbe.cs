@@ -11,6 +11,7 @@ namespace KeelMatrix.ConfigGap.Probe;
 public sealed class SemanticProbe
 {
     private static readonly object MsBuildRegistrationGate = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Compilation, ParameterCallSiteIndex> ParameterCallSiteIndexes = new();
 
     public static async Task<IReadOnlyList<ObservedAccess>> AnalyzeAsync(
         string solutionPath,
@@ -693,36 +694,38 @@ public sealed class SemanticProbe
             return [];
         }
 
-        var activeLocals = visitedLocals ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var activeSymbols = visitedLocals ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         if (receiver is IdentifierNameSyntax identifier)
         {
-            if (!IsConfigurationSectionType(type) && IsRootConfigurationAlias(identifier, model))
-            {
-                return [];
-            }
-
             var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
             if (symbol is ILocalSymbol local)
             {
-                return ResolveLocalSectionPrefix(local, compilation, activeLocals, cancellationToken);
+                return ResolveLocalSectionPrefix(local, compilation, activeSymbols, cancellationToken);
             }
 
-            if (symbol is IParameterSymbol)
+            if (symbol is IParameterSymbol parameter)
             {
-                return [];
+                return ResolveParameterSectionPrefix(parameter, compilation, activeSymbols, cancellationToken);
             }
 
             if (symbol is IFieldSymbol or IPropertySymbol)
             {
-                return [];
-            }
-
-            if (symbol is null && IsRootConfigurationAlias(identifier, model))
-            {
-                return [];
+                return ResolveConfigurationMemberPrefix(symbol, compilation, activeSymbols, cancellationToken);
             }
 
             return [new StringResolution(null, "dynamic-section-prefix")];
+        }
+
+        if (receiver is MemberAccessExpressionSyntax memberAccess &&
+            model.GetSymbolInfo(memberAccess, cancellationToken).Symbol is ISymbol member &&
+            (member is IFieldSymbol || member is IPropertySymbol))
+        {
+            return ResolveConfigurationMemberPrefix(member, compilation, activeSymbols, cancellationToken);
+        }
+
+        if (IsProvenRootConfigurationExpression(receiver, model, cancellationToken))
+        {
+            return [];
         }
 
         if (!IsConfigurationSectionType(type))
@@ -736,10 +739,10 @@ public sealed class SemanticProbe
         }
 
         if (receiver is InvocationExpressionSyntax invocation &&
-            invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-            memberAccess.Name.Identifier.Text is "GetSection" or "GetRequiredSection")
+            invocation.Expression is MemberAccessExpressionSyntax sectionMemberAccess &&
+            sectionMemberAccess.Name.Identifier.Text is "GetSection" or "GetRequiredSection")
         {
-            return ResolveConfigurationPath(invocation, model, compilation, cancellationToken, activeLocals);
+            return ResolveConfigurationPath(invocation, model, compilation, cancellationToken, activeSymbols);
         }
 
         return [new StringResolution(null, "dynamic-section-prefix")];
@@ -748,10 +751,10 @@ public sealed class SemanticProbe
     private static StringResolution[] ResolveLocalSectionPrefix(
         ILocalSymbol local,
         Compilation compilation,
-        HashSet<ISymbol> visitedLocals,
+        HashSet<ISymbol> visitedSymbols,
         CancellationToken cancellationToken)
     {
-        if (!visitedLocals.Add(local))
+        if (!visitedSymbols.Add(local))
         {
             return [new StringResolution(null, "dynamic-section-prefix-cycle")];
         }
@@ -774,26 +777,364 @@ public sealed class SemanticProbe
             return [new StringResolution(null, "dynamic-section-reassigned")];
         }
 
-        var initializerType = declarationModel.GetTypeInfo(variable.Initializer.Value, cancellationToken).Type;
-        if (initializerType is null || !IsConfigurationType(initializerType))
-        {
-            return [new StringResolution(null, "dynamic-section-local")];
-        }
-
-        if (!IsConfigurationSectionType(initializerType))
-        {
-            return IsKnownRootConfigurationExpression(variable.Initializer.Value, declarationModel)
-                ? []
-                : [new StringResolution(null, "dynamic-section-local")];
-        }
-
         var resolutions = ResolveSectionPrefix(
             variable.Initializer.Value,
             declarationModel,
             compilation,
             cancellationToken,
-            visitedLocals);
+            visitedSymbols);
         return resolutions;
+    }
+
+    private static StringResolution[] ResolveParameterSectionPrefix(
+        IParameterSymbol parameter,
+        Compilation compilation,
+        HashSet<ISymbol> visitedSymbols,
+        CancellationToken cancellationToken)
+    {
+        if (!visitedSymbols.Add(parameter))
+        {
+            return [new StringResolution(null, "dynamic-parameter-provenance-cycle")];
+        }
+
+        try
+        {
+            if (parameter.ContainingSymbol is not IMethodSymbol method ||
+                method.DeclaringSyntaxReferences.Length != 1)
+            {
+                return [new StringResolution(null, "dynamic-parameter-provenance")];
+            }
+
+            var callSiteArguments = FindParameterCallSiteArguments(method, parameter, compilation, cancellationToken);
+            if (callSiteArguments.Count == 0)
+            {
+                // A direct parameter receiver remains a supported v1 shape when
+                // no same-compilation call site provides contradictory section
+                // provenance. A visible section/unknown argument below makes
+                // the receiver informational instead of inventing a root key.
+                return [];
+            }
+
+            foreach (var (argument, callSiteModel) in callSiteArguments)
+            {
+                if (!IsProvenRootConfigurationExpression(
+                        argument,
+                        callSiteModel,
+                        cancellationToken,
+                        compilation,
+                        visitedSymbols))
+                {
+                    return [new StringResolution(null, "dynamic-parameter-provenance")];
+                }
+            }
+
+            return [];
+        }
+        finally
+        {
+            visitedSymbols.Remove(parameter);
+        }
+    }
+
+    private static List<(ExpressionSyntax Argument, SemanticModel Model)> FindParameterCallSiteArguments(
+        IMethodSymbol method,
+        IParameterSymbol parameter,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var index = ParameterCallSiteIndexes.GetValue(
+            compilation,
+            currentCompilation => BuildParameterCallSiteIndex(currentCompilation, cancellationToken));
+        if (!index.CallsByName.TryGetValue(method.Name, out var calls))
+        {
+            return [];
+        }
+
+        var callSiteArguments = new List<(ExpressionSyntax Argument, SemanticModel Model)>();
+        foreach (var invocation in calls)
+        {
+            var model = compilation.GetSemanticModel(invocation.SyntaxTree);
+            if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol invokedMethod ||
+                !SymbolEqualityComparer.Default.Equals(invokedMethod.OriginalDefinition, method.OriginalDefinition) ||
+                !TryGetArgument(invocation, parameter, out var argument))
+            {
+                continue;
+            }
+
+            callSiteArguments.Add((argument, model));
+        }
+
+        return callSiteArguments;
+    }
+
+    private static ParameterCallSiteIndex BuildParameterCallSiteIndex(
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var callsByName = new Dictionary<string, List<InvocationExpressionSyntax>>(StringComparer.Ordinal);
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            foreach (var invocation in tree.GetRoot(cancellationToken).DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                var name = invocation.Expression switch
+                {
+                    IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                    MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+                    _ => null
+                };
+                if (name is null)
+                {
+                    continue;
+                }
+
+                if (!callsByName.TryGetValue(name, out var calls))
+                {
+                    calls = [];
+                    callsByName.Add(name, calls);
+                }
+
+                calls.Add(invocation);
+            }
+        }
+
+        return new ParameterCallSiteIndex(callsByName);
+    }
+
+    private static StringResolution[] ResolveConfigurationMemberPrefix(
+        ISymbol member,
+        Compilation compilation,
+        HashSet<ISymbol> visitedSymbols,
+        CancellationToken cancellationToken)
+    {
+        if (!visitedSymbols.Add(member))
+        {
+            return [new StringResolution(null, "dynamic-member-provenance-cycle")];
+        }
+
+        try
+        {
+            var memberType = member switch
+            {
+                IFieldSymbol field => field.Type,
+                IPropertySymbol property => property.Type,
+                _ => null
+            };
+            if (memberType is null || !IsConfigurationType(memberType))
+            {
+                return [new StringResolution(null, "dynamic-member-provenance")];
+            }
+
+            if (IsRootConfigurationType(memberType))
+            {
+                return [];
+            }
+
+            if (IsKnownRootConfigurationMember(member))
+            {
+                return [];
+            }
+
+            var expressions = GetConfigurationMemberValueExpressions(member, cancellationToken);
+            if (expressions.Count != 1)
+            {
+                return [new StringResolution(null, "dynamic-member-provenance")];
+            }
+
+            var declaration = expressions[0];
+            var declarationModel = compilation.GetSemanticModel(declaration.SyntaxTree);
+            var type = declarationModel.GetTypeInfo(declaration, cancellationToken).Type;
+            if (type is null || !IsConfigurationType(type))
+            {
+                return [new StringResolution(null, "dynamic-member-provenance")];
+            }
+
+            if (!IsConfigurationSectionType(memberType))
+            {
+                return IsProvenRootConfigurationExpression(
+                        declaration,
+                        declarationModel,
+                        cancellationToken,
+                        compilation,
+                        visitedSymbols)
+                    ? []
+                    : [new StringResolution(null, "dynamic-member-provenance")];
+            }
+
+            return ResolveSectionPrefix(
+                declaration,
+                declarationModel,
+                compilation,
+                cancellationToken,
+                visitedSymbols);
+        }
+        finally
+        {
+            visitedSymbols.Remove(member);
+        }
+    }
+
+    private static List<ExpressionSyntax> GetConfigurationMemberValueExpressions(
+        ISymbol member,
+        CancellationToken cancellationToken)
+    {
+        var expressions = new List<ExpressionSyntax>();
+        foreach (var reference in member.DeclaringSyntaxReferences)
+        {
+            var declaration = reference.GetSyntax(cancellationToken);
+            switch (declaration)
+            {
+                case VariableDeclaratorSyntax variable when variable.Initializer?.Value is { } initializer:
+                    expressions.Add(initializer);
+                    break;
+                case PropertyDeclarationSyntax property:
+                    if (property.ExpressionBody?.Expression is { } expressionBody)
+                    {
+                        expressions.Add(expressionBody);
+                    }
+
+                    if (property.Initializer?.Value is { } propertyInitializer)
+                    {
+                        expressions.Add(propertyInitializer);
+                    }
+
+                    foreach (var getter in property.AccessorList?.Accessors.Where(accessor => accessor.IsKind(SyntaxKind.GetAccessorDeclaration)) ?? [])
+                    {
+                        if (getter.ExpressionBody?.Expression is { } getterExpression)
+                        {
+                            expressions.Add(getterExpression);
+                        }
+
+                        if (getter.Body is not null)
+                        {
+                            expressions.AddRange(getter.Body.Statements
+                                .OfType<ReturnStatementSyntax>()
+                                .Where(statement => statement.Expression is not null)
+                                .Select(statement => statement.Expression!));
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        return expressions;
+    }
+
+    private static bool IsProvenRootConfigurationExpression(
+        ExpressionSyntax expression,
+        SemanticModel model,
+        CancellationToken cancellationToken,
+        Compilation? compilation = null,
+        HashSet<ISymbol>? visitedSymbols = null)
+    {
+        var type = model.GetTypeInfo(expression, cancellationToken).Type;
+        if (type is null || !IsConfigurationType(type))
+        {
+            return false;
+        }
+
+        if (IsRootConfigurationType(type))
+        {
+            return true;
+        }
+
+        if (expression is MemberAccessExpressionSyntax memberAccess &&
+            model.GetSymbolInfo(memberAccess, cancellationToken).Symbol is ISymbol member)
+        {
+            if (IsKnownRootConfigurationMember(member))
+            {
+                return true;
+            }
+
+            if (compilation is not null && (member is IFieldSymbol || member is IPropertySymbol))
+            {
+                var resolutions = ResolveConfigurationMemberPrefix(
+                    member,
+                    compilation,
+                    visitedSymbols ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+                    cancellationToken);
+                return resolutions.Length == 0;
+            }
+        }
+
+        if (expression is InvocationExpressionSyntax invocation &&
+            model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method)
+        {
+            return IsRootConfigurationType(method.ReturnType) ||
+                (method.Name == "Build" &&
+                 method.ContainingType?.ToDisplayString() == "Microsoft.Extensions.Configuration.ConfigurationBuilder");
+        }
+
+        if (expression is IdentifierNameSyntax identifier &&
+            model.GetSymbolInfo(identifier, cancellationToken).Symbol is IParameterSymbol parameter &&
+            compilation is not null)
+        {
+            var resolutions = ResolveParameterSectionPrefix(
+                parameter,
+                compilation,
+                visitedSymbols ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+                cancellationToken);
+            return resolutions.Length == 0;
+        }
+
+        if (expression is IdentifierNameSyntax localIdentifier &&
+            model.GetSymbolInfo(localIdentifier, cancellationToken).Symbol is ILocalSymbol local &&
+            compilation is not null)
+        {
+            var resolutions = ResolveLocalSectionPrefix(
+                local,
+                compilation,
+                visitedSymbols ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+                cancellationToken);
+            return resolutions.Length == 0;
+        }
+
+        return false;
+    }
+
+    private static bool IsRootConfigurationType(ITypeSymbol type) =>
+        type.ToDisplayString() is
+            "Microsoft.Extensions.Configuration.IConfigurationRoot" or
+            "Microsoft.Extensions.Configuration.IConfigurationManager" or
+            "Microsoft.Extensions.Configuration.ConfigurationRoot" or
+            "Microsoft.Extensions.Configuration.ConfigurationManager" ||
+        type.AllInterfaces.Any(interfaceType => interfaceType.ToDisplayString() is
+            "Microsoft.Extensions.Configuration.IConfigurationRoot" or
+            "Microsoft.Extensions.Configuration.IConfigurationManager");
+
+    private static bool IsKnownRootConfigurationMember(ISymbol member) =>
+        member is IPropertySymbol property &&
+        property.Name == "Configuration" &&
+        property.ContainingType?.ToDisplayString() is
+            "Microsoft.AspNetCore.Builder.WebApplication" or
+            "Microsoft.AspNetCore.Builder.WebApplicationBuilder" or
+            "Microsoft.Extensions.Hosting.HostApplicationBuilder" or
+            "Microsoft.Extensions.Hosting.IHostApplicationBuilder";
+
+    private sealed record ParameterCallSiteIndex(
+        Dictionary<string, List<InvocationExpressionSyntax>> CallsByName);
+
+    private static bool TryGetArgument(
+        InvocationExpressionSyntax invocation,
+        IParameterSymbol parameter,
+        out ExpressionSyntax argument)
+    {
+        var named = invocation.ArgumentList.Arguments.FirstOrDefault(item =>
+            item.NameColon?.Name.Identifier.ValueText == parameter.Name);
+        if (named is not null)
+        {
+            argument = named.Expression;
+            return true;
+        }
+
+        if (parameter.Ordinal < invocation.ArgumentList.Arguments.Count)
+        {
+            argument = invocation.ArgumentList.Arguments[parameter.Ordinal].Expression;
+            return true;
+        }
+
+        argument = null!;
+        return false;
     }
 
     private static bool IsLocalWrite(IdentifierNameSyntax identifier)
@@ -820,45 +1161,6 @@ public sealed class SemanticProbe
         type.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection" ||
         type.AllInterfaces.Any(interfaceType =>
             interfaceType.ToDisplayString() == "Microsoft.Extensions.Configuration.IConfigurationSection");
-
-    private static bool IsRootConfigurationAlias(IdentifierNameSyntax identifier, SemanticModel model)
-    {
-        var containingSymbol = model.GetEnclosingSymbol(identifier.SpanStart);
-        var declaration = identifier.SyntaxTree.GetRoot()
-            .DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .Where(variable =>
-                variable.Identifier.ValueText.Equals(identifier.Identifier.ValueText, StringComparison.Ordinal) &&
-                variable.SpanStart < identifier.SpanStart &&
-                SymbolEqualityComparer.Default.Equals(
-                    containingSymbol,
-                    model.GetEnclosingSymbol(variable.SpanStart)))
-            .OrderByDescending(variable => variable.SpanStart)
-            .FirstOrDefault();
-        if (declaration?.Initializer?.Value is not { } initializer ||
-            initializer is InvocationExpressionSyntax ||
-            !IsConfigurationType(model.GetTypeInfo(initializer).Type))
-        {
-            return false;
-        }
-
-        return initializer is MemberAccessExpressionSyntax or IdentifierNameSyntax;
-    }
-
-    private static bool IsKnownRootConfigurationExpression(ExpressionSyntax expression, SemanticModel model)
-    {
-        if (expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            return model.GetSymbolInfo(memberAccess).Symbol is IPropertySymbol or IFieldSymbol;
-        }
-
-        if (expression is IdentifierNameSyntax identifier)
-        {
-            return model.GetSymbolInfo(identifier).Symbol is IParameterSymbol or IPropertySymbol or IFieldSymbol;
-        }
-
-        return false;
-    }
 
     private static IReadOnlyList<StringResolution> CombineConfigurationPaths(
         IReadOnlyList<StringResolution> prefixes,
@@ -918,7 +1220,10 @@ public sealed class SemanticProbe
 
         var symbol = model.GetSymbolInfo(outer, cancellationToken).Symbol as IMethodSymbol;
         var methodName = symbol?.Name ?? memberAccess.Name.Identifier.Text;
-        return methodName is "GetValue" or "GetSection" or "GetRequiredSection" or "GetChildren" or "Bind";
+        return methodName is "GetValue" or "GetSection" or "GetRequiredSection" or "GetChildren" or "Bind" ||
+            symbol is not null &&
+            symbol.DeclaringSyntaxReferences.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, model.Compilation.Assembly);
     }
 
     private static string? GetKnownConsumerName(

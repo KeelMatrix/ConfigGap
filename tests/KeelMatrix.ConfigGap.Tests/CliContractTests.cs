@@ -66,6 +66,21 @@ public sealed class CliContractTests
         Assert.Contains(findings, finding => finding.GetProperty("code").GetString() == "CG900" && finding.GetProperty("source").GetString() == "fixtures/FixtureConsumer/Patterns/DynamicBind.cs");
     }
 
+    [Fact]
+    public async Task CliReportsUnprovenConfigurationReceiverProvenanceAsInformational()
+    {
+        var result = await RunAsync("check", "--project", ConsumerProject, "--config", Path.Combine("fixtures", "FixtureConsumer", ".configgap.json"), "--format", "json");
+
+        using var report = JsonDocument.Parse(result.Output);
+        var findings = report.RootElement.GetProperty("findings")
+            .EnumerateArray()
+            .Where(finding => finding.GetProperty("source").GetString()?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.Equal(6, findings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
+        Assert.DoesNotContain(findings, finding => finding.GetProperty("code").GetString() == "CG001");
+    }
+
     [Theory]
     [InlineData("{\"version\":1,\"frameworkOwnedPolicy\":\"include\",\"declarationSurfaces\":[]}")]
     [InlineData("{\"version\":1,\"declarationSurfaces\":[\"appsettings.json\"]}")]

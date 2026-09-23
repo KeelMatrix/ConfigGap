@@ -46,7 +46,7 @@ configuration.GetSection("Payments")
 configuration.GetRequiredSection("Payments")
 ```
 
-These literal reads remain supported when the receiver is directly interface-typed or is a statically resolved alias to a known root configuration property or field.
+These literal reads remain supported only when the receiver's root provenance is statically established: a root configuration type, a known framework root `Configuration` property, a local/field/property initialized from a proven root, or a same-compilation helper parameter whose visible call-site arguments are proven roots. A direct `IConfiguration` parameter remains supported when no visible same-compilation call site establishes a different section scope; a section or otherwise unproven parameter/property/field produces `CG900` instead of an invented root key. Local aliases initialized directly from `GetSection("Section")` retain their section scope.
 
 Supported Options analysis includes statically known section ownership and the framework `BindConfiguration("Section")` pattern. A writable Options property is not treated as required merely because it exists. ConfigGap keeps known/bindable keys, required keys, and keys actually read by code conceptually separate; v1 reports the statically observed dependency surface.
 

@@ -31,7 +31,9 @@ configuration.GetSection("Section");
 configuration.GetRequiredSection("Section");
 ```
 
-Literal reads are also supported when the receiver is directly interface-typed or is a statically resolved alias to a known root configuration property or field.
+Literal reads are supported only when the receiver's root provenance is statically established. Supported provenance includes a root configuration type (`IConfigurationRoot`, `IConfigurationManager`, or their known concrete implementations), a known framework root `Configuration` property, a local/field/property initialized from one of those expressions, and a same-compilation helper parameter whose visible call-site arguments are proven roots. A direct `IConfiguration` parameter remains supported when no visible same-compilation call site establishes a different section scope; a section or otherwise unproven parameter/property/field produces `CG900` instead of an invented root key.
+
+For example, `Read(root.GetSection("Payments"))` is not treated as a root receiver when `Read` accepts `IConfiguration`; its access is reported as `CG900` unless the receiver's provenance can be proven. A local alias initialized directly from `GetSection("Payments")` retains its known section scope.
 
 Supported Options section ownership uses statically known sections and the framework `BindConfiguration("Section")` extension. A property being writable does not make its key required. A key can be known or bindable without being read by code; those concepts are kept separate.
 
