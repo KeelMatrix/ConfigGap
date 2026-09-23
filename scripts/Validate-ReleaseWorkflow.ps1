@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$WorkflowPath
+    [string]$WorkflowPath,
+    [string]$CiWorkflowPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,8 +14,11 @@ function Assert-Contract {
 
 $repo = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($WorkflowPath)) { $WorkflowPath = Join-Path $repo '.github/workflows/release.yml' }
+if ([string]::IsNullOrWhiteSpace($CiWorkflowPath)) { $CiWorkflowPath = Join-Path $repo '.github/workflows/ci.yml' }
 Assert-Contract (Test-Path -LiteralPath $WorkflowPath -PathType Leaf) "Release workflow was not found: $WorkflowPath"
+Assert-Contract (Test-Path -LiteralPath $CiWorkflowPath -PathType Leaf) "CI workflow was not found: $CiWorkflowPath"
 $workflow = Get-Content -Raw -LiteralPath $WorkflowPath
+$ciWorkflow = Get-Content -Raw -LiteralPath $CiWorkflowPath
 
 Assert-Contract ($workflow -match '(?m)^on:\s*$') 'Workflow must declare an on block.'
 Assert-Contract ($workflow -match '(?m)^\s+push:\s*$' -and $workflow -match '(?m)^\s+tags:\s*$') 'Workflow must use tag-only push triggering.'
@@ -42,4 +46,9 @@ foreach ($action in $actions) {
     Assert-Contract ($action -match '@v\d+(?:\.\d+(?:\.\d+)?)?$') "Action reference is not version-pinned: $action"
 }
 
+foreach ($preTagGate in @('Invoke-VulnerabilityAudit.ps1', 'Test-ReleaseContract.ps1', 'Validate-ReleaseWorkflow.ps1')) {
+    Assert-Contract ($ciWorkflow -match [regex]::Escape($preTagGate)) "CI workflow must run the pre-tag gate: $preTagGate"
+}
+
 Write-Output "Release workflow static contract passed: $WorkflowPath"
+Write-Output "Pre-tag CI gate contract passed: $CiWorkflowPath (vulnerability audit, release-contract tests, and release-workflow validation)."

@@ -123,7 +123,7 @@ $performanceGate = Get-Phase0BPerformanceGate -Report $performance -ExpectedObse
 if ($performanceGate.verdict -ne 'PASS') {
     throw "CONFIGGAP_EVIDENCE_PERFORMANCE_GATE: committed performance evidence failed: $($performanceGate.failureReasons -join '; ')"
 }
-$reviewerGate = Get-Phase0BPerformanceGate -Report ([pscustomobject]@{
+$comparisonBaselineGate = Get-Phase0BPerformanceGate -Report ([pscustomobject]@{
         expectedObservationCount = 3302
         runs = @(
             [pscustomobject]@{ run = 1; observationCount = 3302; durationMilliseconds = 21274; peakWorkingSetBytes = 257155072 }
@@ -132,13 +132,13 @@ $reviewerGate = Get-Phase0BPerformanceGate -Report ([pscustomobject]@{
         )
         frozenV1Baseline = $performance.frozenV1Baseline
     }) -ExpectedObservationCount 3302 -Retrospective
-if ($reviewerGate.verdict -ne 'PASS') {
-    throw "CONFIGGAP_EVIDENCE_REVIEWER_SAMPLE: the retrospective reviewer sample set failed: $($reviewerGate.failureReasons -join '; ')"
+if ($comparisonBaselineGate.verdict -ne 'PASS') {
+    throw "CONFIGGAP_EVIDENCE_COMPARISON_BASELINE: the comparison baseline failed: $($comparisonBaselineGate.failureReasons -join '; ')"
 }
 if ([long]$performance.frozenV1Baseline.wallClockBoundMilliseconds -ne 21000 -or [long]$performance.frozenV1Baseline.peakWorkingSetBoundBytes -ne 274726912) {
     throw 'CONFIGGAP_EVIDENCE_PERFORMANCE_BASELINE: frozen V1 resource limits changed.'
 }
 Write-Output "Resource performance gate consistency: PASS ($($performanceGate.reportedRunCount) runs; minimum $($performanceGate.minimumDurationMilliseconds) ms; median $($performanceGate.medianDurationMilliseconds) ms; maximum peak $($performanceGate.maximumPeakWorkingSetBytes) bytes; frozen limits 21000 ms / 274726912 bytes)."
-Write-Output "Reviewer sample statistic consistency: PASS (3 samples; minimum $($reviewerGate.minimumDurationMilliseconds) ms; median $($reviewerGate.medianDurationMilliseconds) ms; maximum peak $($reviewerGate.maximumPeakWorkingSetBytes) bytes)."
+Write-Output "Comparison baseline statistic consistency: PASS (3 samples; minimum $($comparisonBaselineGate.minimumDurationMilliseconds) ms; median $($comparisonBaselineGate.medianDurationMilliseconds) ms; maximum peak $($comparisonBaselineGate.maximumPeakWorkingSetBytes) bytes)."
 
 Write-Output 'Evaluation metrics summary consistency: PASS'

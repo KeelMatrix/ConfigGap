@@ -20,16 +20,21 @@ function Assert-Contract {
 }
 
 function Invoke-CheckedPush {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [switch]$NoSymbols
+    )
 
     Assert-Contract (Test-Path -LiteralPath $Path -PathType Leaf) "Package artifact was not found: $Path"
-    & $DotnetCommand nuget push $Path --api-key $env:NUGET_API_KEY --source $Source
+    $arguments = @('nuget', 'push', $Path, '--api-key', $env:NUGET_API_KEY, '--source', $Source)
+    if ($NoSymbols) { $arguments += '--no-symbols' }
+    & $DotnetCommand @arguments
     if ($LASTEXITCODE -ne 0) {
         throw "NuGet publication failed for '$Path' with exit code $LASTEXITCODE."
     }
 }
 
 Assert-Contract (-not [string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) 'NUGET_API_KEY must be provided by the Trusted Publishing login step.'
-Invoke-CheckedPush -Path $PackagePath
+Invoke-CheckedPush -Path $PackagePath -NoSymbols
 Invoke-CheckedPush -Path $SymbolsPath
 Write-Output 'NuGet package and symbol publication commands completed successfully.'

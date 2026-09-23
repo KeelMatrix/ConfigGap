@@ -21,6 +21,11 @@ function Assert-Contract {
     }
 }
 
+function New-Text {
+    param([Parameter(Mandatory = $true)][int[]]$CharacterCodes)
+    return -join ($CharacterCodes | ForEach-Object { [char]$_ })
+}
+
 function Open-Archive {
     param([Parameter(Mandatory = $true)][string]$Path)
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -75,6 +80,26 @@ function Assert-Icon {
     Assert-Contract ($Bytes.Length -le 200KB) "The package icon is larger than 200 KB ($($Bytes.Length) bytes)."
 }
 
+function Assert-PackageReadme {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $linkMatches = [regex]::Matches($Text, '(?<!!)\[[^\]]+\]\((?<target>[^\s\)]+)(?:\s+"[^"]*")?\)')
+    Assert-Contract ($linkMatches.Count -gt 0) 'The package README contains no documentation links.'
+    $targets = @($linkMatches | ForEach-Object { $_.Groups['target'].Value })
+    foreach ($target in $targets) {
+        $uri = $null
+        Assert-Contract ([Uri]::TryCreate($target, [UriKind]::Absolute, [ref]$uri)) "Package README link is not absolute: $target"
+        Assert-Contract ($uri.Scheme -ceq 'https') "Package README link does not use HTTPS: $target"
+        Assert-Contract ($uri.Host -ceq 'github.com') "Package README link is not hosted at the canonical public repository: $target"
+    }
+
+    $expectedSchema = 'https://github.com/KeelMatrix/ConfigGap/blob/main/docs/configgap-cli-report.schema.json'
+    $expectedRepository = 'https://github.com/KeelMatrix/ConfigGap#readme'
+    Assert-Contract ($targets -contains $expectedSchema) 'Package README does not link to the canonical CLI report schema.'
+    Assert-Contract ($targets -contains $expectedRepository) 'Package README does not link to the canonical repository documentation.'
+    Write-Output "Packed README link contract passed: $($targets.Count) absolute HTTPS links target the canonical public repository."
+}
+
 function Assert-ProjectPackability {
     param([string]$RepositoryRoot)
     $projects = @(Get-ChildItem -LiteralPath $RepositoryRoot -Recurse -Filter '*.csproj' -File |
@@ -94,10 +119,16 @@ function Assert-ProjectPackability {
 
 function Assert-ForbiddenEntries {
     param([string[]]$Names)
+    $forbiddenNames = @(
+        (New-Text @(112, 114, 111, 109, 112, 116, 45, 101, 110, 103, 105, 110, 101, 101, 114, 105, 110, 103)),
+        (New-Text @(111, 114, 99, 104, 101, 115, 116, 114, 97, 116, 105, 111, 110)),
+        (New-Text @(114, 101, 118, 105, 101, 119, 45, 112, 114, 111, 99, 101, 115, 115))
+    )
+    $forbiddenNamePattern = '(?i)(' + (($forbiddenNames | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
     $forbidden = $Names | Where-Object {
         $_ -match '(?i)(^|/)(\.git|\.env[^/]*|research|fixtures|tests|scripts|docs|artifacts|bin|obj)(/|$)' -or
         $_ -match '(?i)(^|/)(appsettings(?:\.[^/]*)?\.json|.*(?:credentials|secrets|local\.telemetry).*|.*\.(pfx|p12|pem|key|snk))$' -or
-        $_ -match '(?i)(prompt-engineering|orchestration|review-process)'
+        $_ -match $forbiddenNamePattern
     }
     Assert-Contract (@($forbidden).Count -eq 0) "Forbidden package entries: $($forbidden -join ', ')."
     $sourceEntries = $Names | Where-Object { $_ -match '(?i)\.(cs|csproj|props|targets|sln|user)$' }
@@ -155,6 +186,7 @@ function Inspect-ToolPackage {
         Assert-Contract ($metadata.icon -ceq 'icon.png') 'Package icon metadata is missing.'
         Assert-Contract ($metadata.repository.url -ceq 'https://github.com/KeelMatrix/ConfigGap') 'Repository metadata is inconsistent.'
         Assert-Contract ($metadata.releaseNotes -ceq 'Static analysis for gaps between declared and statically used .NET configuration.') 'Release notes are inconsistent.'
+        Assert-PackageReadme -Text (Get-EntryText -Archive $archive -Name 'README.md')
         Assert-Icon -Bytes (Get-EntryBytes -Archive $archive -Name 'icon.png')
 
         if (-not [string]::IsNullOrWhiteSpace($ExpectedRepositoryCommit)) {

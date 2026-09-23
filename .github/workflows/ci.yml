@@ -43,9 +43,17 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./scripts/Test-Phase0BEvidence.ps1
 
-      - name: Check report candidate ref
+      - name: Check evaluation source ref
         shell: pwsh
-        run: pwsh -NoProfile -File ./scripts/Test-ReportCandidateRef.ps1
+        run: pwsh -NoProfile -File ./scripts/Test-ReportSourceRef.ps1
+
+      - name: Validate release workflow contract
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Validate-ReleaseWorkflow.ps1
+
+      - name: Test release contract
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Test-ReleaseContract.ps1
 
       - name: Install the pinned SDK
         uses: actions/setup-dotnet@v4
@@ -54,6 +62,10 @@ jobs:
 
       - name: Restore from controlled sources
         run: dotnet restore KeelMatrix.ConfigGap.sln --configfile NuGet.config --nologo
+
+      - name: Audit direct and transitive vulnerabilities
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/Invoke-VulnerabilityAudit.ps1
 
       - name: Build Release
         run: dotnet build KeelMatrix.ConfigGap.sln -c Release --no-restore --nologo

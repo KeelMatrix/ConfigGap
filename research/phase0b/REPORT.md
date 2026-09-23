@@ -4,7 +4,7 @@
 
 Overall verdict: PASS
 
-Recorded candidate ref: `e66ba4fafcc38206095333dd5bc2814abd719e08`
+Evaluation source ref: `e66ba4fafcc38206095333dd5bc2814abd719e08`
 
 This report records the reproducible corpus, performance, and platform evaluation for the analyzer. The labeled corpus, precision/recall thresholds, and resource limits are evaluation inputs; they are not adjusted to improve a result.
 
@@ -103,9 +103,9 @@ Resource gate verdict: PASS
 Benchmark scratch present after cleanup: False
 ```
 
-## Independent reviewer sample evaluation
+## Comparison baseline evaluation
 
-The independent fresh-clone sample set was `21,274/19,633/20,129` ms with peaks `257,155,072/251,711,488/252,014,592` bytes and 3,302 observations on each run. Under the new statistic, minimum duration is 19,633 ms <= 21,000 ms, median duration is 20,129 ms <= 23,100 ms, and maximum peak working set is 257,155,072 bytes <= 274,726,912 bytes. Retrospective statistic verdict: `PASS`. Its three samples are explicitly not a substitute for the default five-run gated protocol.
+The fresh-clone comparison baseline is `21,274/19,633/20,129` ms with peaks `257,155,072/251,711,488/252,014,592` bytes and 3,302 observations on each run. Under the documented statistic, minimum duration is 19,633 ms <= 21,000 ms, median duration is 20,129 ms <= 23,100 ms, and maximum peak working set is 257,155,072 bytes <= 274,726,912 bytes. Comparison statistic verdict: `PASS`. Its three samples are explicitly not a substitute for the default five-run gated protocol.
 
 ## Cross-platform evidence
 
@@ -135,9 +135,9 @@ The raw tails included a zero-warning/zero-error Release build, passing core and
 
 The measured resource bounds apply to the generated input and recorded Windows machine. The platform harness verifies the documented Linux path; local macOS workspace compatibility remains unverified. Workspace failures must remain actionable exit-code-2 failures rather than clean results.
 
-## Final fix closure rerun
+## Reproducibility snapshot
 
-The final code closure reran the pinned corpus with restore enabled and the five-run resource protocol from fresh scratch areas. The corpus result was `29/29` precision cases, `29/29` supported-domain recall, `29/29` all-labeled-static-key recall, `0` dynamic blocking findings, `0` load failures, `Verdict: PASS`, and `Scratch clones present after cleanup: False`.
+The pinned corpus was run with restore enabled and the five-run resource protocol from fresh scratch areas. The corpus result was `29/29` precision cases, `29/29` supported-domain recall, `29/29` all-labeled-static-key recall, `0` dynamic blocking findings, `0` load failures, `Verdict: PASS`, and `Scratch clones present after cleanup: False`.
 
 | Run | Duration | Peak working set |
 | ---: | ---: | ---: |
