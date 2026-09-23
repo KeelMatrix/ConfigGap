@@ -163,7 +163,7 @@ public static class ConfigurationCounterexamples
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $counterexample 'ConfigurationCounterexamples.cs') -Encoding utf8NoBOM
-    Set-Content -LiteralPath (Join-Path $receiverProvenance 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ProvenRootRead":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null}}' -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $receiverProvenance 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ConstructorFieldRoot":null,"ConstructorPropertyRoot":null,"ProvenRootRead":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null,"ConstructorAssignedSectionOnly":null}}' -Encoding utf8NoBOM
     @'
 using Microsoft.Extensions.Configuration;
 
@@ -188,9 +188,39 @@ public static class ReceiverProvenance
         return ReadProvenRoot(alias);
     }
 
+    public static string? ConstructorAssignedSectionOnly() =>
+        new ConstructorAssignedSectionReceiver(Root.GetSection("Payments")).Read();
+
     private static string? ReadParameterRootOnly(IConfiguration configuration) => configuration["ParameterRootOnly"];
     private static string? ReadParameterSectionOnly(IConfiguration configuration) => configuration["ParameterSectionOnly"];
     private static string? ReadProvenRoot(IConfiguration configuration) => configuration["ProvenRootRead"];
+}
+
+public sealed class ConstructorAssignedReceiver
+{
+    private readonly IConfiguration _field;
+    private IConfiguration Property { get; }
+
+    public ConstructorAssignedReceiver(IConfiguration configuration)
+    {
+        _field = configuration;
+        Property = configuration;
+    }
+
+    public string? ReadField() => _field["ConstructorFieldRoot"];
+    public string? ReadProperty() => Property["ConstructorPropertyRoot"];
+}
+
+public sealed class ConstructorAssignedSectionReceiver
+{
+    private readonly IConfiguration _field;
+
+    public ConstructorAssignedSectionReceiver(IConfiguration configuration)
+    {
+        _field = configuration;
+    }
+
+    public string? Read() => _field["ConstructorAssignedSectionOnly"];
 }
 '@ | Set-Content -LiteralPath (Join-Path $receiverProvenance 'ReceiverProvenance.cs') -Encoding utf8NoBOM
 
@@ -206,12 +236,15 @@ public static class ReceiverProvenance
     $receiverResult = Assert-JsonCase -Name 'receiver provenance case' -Root $receiverProvenance -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true
     $receiverReport = $receiverResult.Output | ConvertFrom-Json
     $receiverFindings = @($receiverReport.findings | Where-Object { $_.source -eq 'ReceiverProvenance.cs' })
-    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG900' }).Count -eq 6) 'The installed tool did not report all six unproven parameter/property/field receivers as CG900.'
+    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG900' }).Count -eq 7) 'The installed tool did not report all seven unproven parameter/property/field receivers as CG900.'
     Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG001' }).Count -eq 0) 'The installed tool invented a blocking root key for an unproven receiver.'
     foreach ($key in @('ParameterRootOnly', 'ParameterSectionOnly', 'PropertyRootOnly', 'PropertySectionOnly', 'FieldRootOnly', 'FieldSectionOnly')) {
         Assert-Contract (@($receiverReport.actuallyReadKeys) -notcontains $key) "The installed tool incorrectly reported '$key' as a root read."
     }
     Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ProvenRootRead') 'The installed tool did not preserve a helper parameter passed a proven-root alias.'
+    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ConstructorFieldRoot') 'The installed tool did not preserve a constructor-assigned root field.'
+    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ConstructorPropertyRoot') 'The installed tool did not preserve a constructor-assigned root property.'
+    Assert-Contract (@($receiverReport.actuallyReadKeys) -notcontains 'ConstructorAssignedSectionOnly') 'The installed tool incorrectly reported a constructor-assigned section as a root read.'
     Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, unknown Bind, and unproven receiver provenance.'
 }
 finally {

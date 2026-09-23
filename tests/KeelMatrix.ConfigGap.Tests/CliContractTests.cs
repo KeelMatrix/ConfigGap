@@ -72,13 +72,20 @@ public sealed class CliContractTests
         var result = await RunAsync("check", "--project", ConsumerProject, "--config", Path.Combine("fixtures", "FixtureConsumer", ".configgap.json"), "--format", "json");
 
         using var report = JsonDocument.Parse(result.Output);
+        var readKeys = report.RootElement.GetProperty("actuallyReadKeys")
+            .EnumerateArray()
+            .Select(key => key.GetString())
+            .ToArray();
         var findings = report.RootElement.GetProperty("findings")
             .EnumerateArray()
             .Where(finding => finding.GetProperty("source").GetString()?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(6, findings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
+        Assert.Equal(7, findings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
         Assert.DoesNotContain(findings, finding => finding.GetProperty("code").GetString() == "CG001");
+        Assert.Contains("ConstructorFieldRoot", readKeys);
+        Assert.Contains("ConstructorPropertyRoot", readKeys);
+        Assert.DoesNotContain("ConstructorAssignedSectionOnly", readKeys);
     }
 
     [Theory]

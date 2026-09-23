@@ -845,12 +845,31 @@ public sealed class SemanticProbe
         var index = ParameterCallSiteIndexes.GetValue(
             compilation,
             currentCompilation => BuildParameterCallSiteIndex(currentCompilation, cancellationToken));
+
+        var callSiteArguments = new List<(ExpressionSyntax Argument, SemanticModel Model)>();
+        if (method.MethodKind == MethodKind.Constructor)
+        {
+            foreach (var objectCreation in index.ObjectCreations)
+            {
+                var model = compilation.GetSemanticModel(objectCreation.SyntaxTree);
+                if (model.GetSymbolInfo(objectCreation, cancellationToken).Symbol is not IMethodSymbol invokedConstructor ||
+                    !SymbolEqualityComparer.Default.Equals(invokedConstructor.OriginalDefinition, method.OriginalDefinition) ||
+                    !TryGetArgument(objectCreation.ArgumentList, parameter, out var argument))
+                {
+                    continue;
+                }
+
+                callSiteArguments.Add((argument, model));
+            }
+
+            return callSiteArguments;
+        }
+
         if (!index.CallsByName.TryGetValue(method.Name, out var calls))
         {
             return [];
         }
 
-        var callSiteArguments = new List<(ExpressionSyntax Argument, SemanticModel Model)>();
         foreach (var invocation in calls)
         {
             var model = compilation.GetSemanticModel(invocation.SyntaxTree);
@@ -872,9 +891,12 @@ public sealed class SemanticProbe
         CancellationToken cancellationToken)
     {
         var callsByName = new Dictionary<string, List<InvocationExpressionSyntax>>(StringComparer.Ordinal);
+        var objectCreations = new List<ObjectCreationExpressionSyntax>();
         foreach (var tree in compilation.SyntaxTrees)
         {
-            foreach (var invocation in tree.GetRoot(cancellationToken).DescendantNodes().OfType<InvocationExpressionSyntax>())
+            var root = tree.GetRoot(cancellationToken);
+            objectCreations.AddRange(root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>());
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
                 var name = invocation.Expression switch
                 {
@@ -897,7 +919,7 @@ public sealed class SemanticProbe
             }
         }
 
-        return new ParameterCallSiteIndex(callsByName);
+        return new ParameterCallSiteIndex(callsByName, objectCreations);
     }
 
     private static StringResolution[] ResolveConfigurationMemberPrefix(
@@ -934,7 +956,7 @@ public sealed class SemanticProbe
                 return [];
             }
 
-            var expressions = GetConfigurationMemberValueExpressions(member, cancellationToken);
+            var expressions = GetConfigurationMemberValueExpressions(member, compilation, cancellationToken);
             if (expressions.Count != 1)
             {
                 return [new StringResolution(null, "dynamic-member-provenance")];
@@ -975,6 +997,7 @@ public sealed class SemanticProbe
 
     private static List<ExpressionSyntax> GetConfigurationMemberValueExpressions(
         ISymbol member,
+        Compilation compilation,
         CancellationToken cancellationToken)
     {
         var expressions = new List<ExpressionSyntax>();
@@ -1014,6 +1037,23 @@ public sealed class SemanticProbe
                     }
 
                     break;
+            }
+        }
+
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var root = tree.GetRoot(cancellationToken);
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var assignment in root.DescendantNodes()
+                .OfType<AssignmentExpressionSyntax>()
+                .Where(candidate => candidate.IsKind(SyntaxKind.SimpleAssignmentExpression)))
+            {
+                if (SymbolEqualityComparer.Default.Equals(
+                    model.GetSymbolInfo(assignment.Left, cancellationToken).Symbol,
+                    member))
+                {
+                    expressions.Add(assignment.Right);
+                }
             }
         }
 
@@ -1112,14 +1152,27 @@ public sealed class SemanticProbe
             "Microsoft.Extensions.Hosting.IHostApplicationBuilder";
 
     private sealed record ParameterCallSiteIndex(
-        Dictionary<string, List<InvocationExpressionSyntax>> CallsByName);
+        Dictionary<string, List<InvocationExpressionSyntax>> CallsByName,
+        List<ObjectCreationExpressionSyntax> ObjectCreations);
 
     private static bool TryGetArgument(
         InvocationExpressionSyntax invocation,
         IParameterSymbol parameter,
+        out ExpressionSyntax argument) =>
+        TryGetArgument(invocation.ArgumentList, parameter, out argument);
+
+    private static bool TryGetArgument(
+        ArgumentListSyntax? argumentList,
+        IParameterSymbol parameter,
         out ExpressionSyntax argument)
     {
-        var named = invocation.ArgumentList.Arguments.FirstOrDefault(item =>
+        if (argumentList is null)
+        {
+            argument = null!;
+            return false;
+        }
+
+        var named = argumentList.Arguments.FirstOrDefault(item =>
             item.NameColon?.Name.Identifier.ValueText == parameter.Name);
         if (named is not null)
         {
@@ -1127,9 +1180,9 @@ public sealed class SemanticProbe
             return true;
         }
 
-        if (parameter.Ordinal < invocation.ArgumentList.Arguments.Count)
+        if (parameter.Ordinal < argumentList.Arguments.Count)
         {
-            argument = invocation.ArgumentList.Arguments[parameter.Ordinal].Expression;
+            argument = argumentList.Arguments[parameter.Ordinal].Expression;
             return true;
         }
 

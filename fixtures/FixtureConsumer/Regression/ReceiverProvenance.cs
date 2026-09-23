@@ -28,6 +28,9 @@ public static class ReceiverProvenance
         return ReadProvenRoot(alias);
     }
 
+    public static string? ConstructorAssignedSectionOnly() =>
+        new ConstructorAssignedSectionReceiver(Root.GetSection("Payments")).Read();
+
     private static string? ReadParameterRootOnly(IConfiguration configuration) =>
         configuration["ParameterRootOnly"];
 
@@ -36,4 +39,33 @@ public static class ReceiverProvenance
 
     private static string? ReadProvenRoot(IConfiguration configuration) =>
         configuration["ProvenRootRead"];
+}
+
+public sealed class ConstructorAssignedReceiver
+{
+    private readonly IConfiguration _field;
+
+    private IConfiguration Property { get; }
+
+    public ConstructorAssignedReceiver(IConfiguration configuration)
+    {
+        _field = configuration;
+        Property = configuration;
+    }
+
+    public string? ReadField() => _field["ConstructorFieldRoot"];
+
+    public string? ReadProperty() => Property["ConstructorPropertyRoot"];
+}
+
+public sealed class ConstructorAssignedSectionReceiver
+{
+    private readonly IConfiguration _field;
+
+    public ConstructorAssignedSectionReceiver(IConfiguration configuration)
+    {
+        _field = configuration;
+    }
+
+    public string? Read() => _field["ConstructorAssignedSectionOnly"];
 }

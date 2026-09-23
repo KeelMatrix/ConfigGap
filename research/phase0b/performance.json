@@ -48,48 +48,48 @@
       "run": 1,
       "observationCount": 3302,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 39889,
-      "peakWorkingSetBytes": 246702080
+      "durationMilliseconds": 19798,
+      "peakWorkingSetBytes": 249401344
     },
     {
       "run": 2,
       "observationCount": 3302,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 20717,
-      "peakWorkingSetBytes": 248852480
+      "durationMilliseconds": 18957,
+      "peakWorkingSetBytes": 250744832
     },
     {
       "run": 3,
       "observationCount": 3302,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 22591,
-      "peakWorkingSetBytes": 244912128
+      "durationMilliseconds": 18997,
+      "peakWorkingSetBytes": 250253312
     },
     {
       "run": 4,
       "observationCount": 3302,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 21841,
-      "peakWorkingSetBytes": 247726080
+      "durationMilliseconds": 18692,
+      "peakWorkingSetBytes": 251424768
     },
     {
       "run": 5,
       "observationCount": 3302,
       "declaredSurfaceCount": 50,
-      "durationMilliseconds": 23120,
-      "peakWorkingSetBytes": 249262080
+      "durationMilliseconds": 19125,
+      "peakWorkingSetBytes": 249229312
     }
   ],
   "variance": {
-    "wallClockMeanMilliseconds": 25632,
-    "wallClockSampleVarianceMillisecondsSquared": 64337195,
-    "wallClockSampleStandardDeviationMilliseconds": 8021,
-    "maximumWallClockMilliseconds": 39889,
+    "wallClockMeanMilliseconds": 19114,
+    "wallClockSampleVarianceMillisecondsSquared": 171100,
+    "wallClockSampleStandardDeviationMilliseconds": 414,
+    "maximumWallClockMilliseconds": 19798,
     "wallClockMargin": "two sample standard deviations, with maximum-observation floor",
-    "derivedWallClockBoundMilliseconds": 41700,
-    "maximumPeakWorkingSetBytes": 249262080,
+    "derivedWallClockBoundMilliseconds": 20000,
+    "maximumPeakWorkingSetBytes": 251424768,
     "peakWorkingSetMargin": "10% above observed maximum",
-    "derivedPeakWorkingSetBoundBytes": 274726912
+    "derivedPeakWorkingSetBoundBytes": 276824064
   },
   "machine": {
     "os": "Microsoft Windows 10.0.19045",
@@ -108,10 +108,10 @@
     "verdict": "PASS",
     "requiredGuardedRuns": 5,
     "reportedRunCount": 5,
-    "minimumDurationMilliseconds": 20717,
-    "medianDurationMilliseconds": 22591.0,
+    "minimumDurationMilliseconds": 18692,
+    "medianDurationMilliseconds": 18997.0,
     "medianDurationLimitMilliseconds": 23100.0,
-    "maximumPeakWorkingSetBytes": 249262080.0,
+    "maximumPeakWorkingSetBytes": 251424768.0,
     "frozenWallClockBoundMilliseconds": 21000,
     "frozenPeakWorkingSetBoundBytes": 274726912,
     "expectedObservationCount": 3302

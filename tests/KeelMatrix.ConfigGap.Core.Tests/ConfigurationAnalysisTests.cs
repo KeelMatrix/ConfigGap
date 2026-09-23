@@ -169,13 +169,16 @@ public sealed class ConfigurationAnalysisTests
             .Where(finding => finding.Source?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(6, findings.Count(finding => finding.Code == "CG900"));
+        Assert.Equal(7, findings.Count(finding => finding.Code == "CG900"));
         Assert.DoesNotContain(findings, finding => finding.Code == "CG001");
         Assert.Contains("ProvenRootRead", result.Report.ActuallyReadKeys);
+        Assert.Contains("ConstructorFieldRoot", result.Report.ActuallyReadKeys);
+        Assert.Contains("ConstructorPropertyRoot", result.Report.ActuallyReadKeys);
         Assert.DoesNotContain(result.Report.ActuallyReadKeys, key => key is
             "ParameterRootOnly" or "ParameterSectionOnly" or
             "PropertyRootOnly" or "PropertySectionOnly" or
-            "FieldRootOnly" or "FieldSectionOnly");
+            "FieldRootOnly" or "FieldSectionOnly" or
+            "ConstructorAssignedSectionOnly");
     }
 
     [Theory]
