@@ -154,11 +154,11 @@ try {
             medianHeadroomFactor = 1.10
             peakWorkingSetRule = 'every raw peak working set <= frozen peak working-set bound'
             observationCountRule = "every run observation count == $expectedObservations"
-            retrospectiveEvaluationMinimumSamples = 3
-            retrospectiveEvaluationNote = 'A retrospective external sample set with at least three raw observations may be evaluated against the duration and peak predicates; it is not a substitute for the default five-run gated protocol.'
+            comparisonBaselineMinimumSamples = 3
+            comparisonBaselineNote = 'A comparison baseline with at least three raw observations may be evaluated against the duration and peak predicates; it is not a substitute for the default five-run gated protocol.'
         }
-        retrospectiveReviewerSampleEvaluation = [ordered]@{
-            source = 'Independent fresh-clone resource observation set supplied for protocol reconciliation'
+        comparisonBaselineEvaluation = [ordered]@{
+            source = 'Fresh-clone resource comparison baseline'
             observationCounts = @(3302, 3302, 3302)
             durationMilliseconds = @(21274, 19633, 20129)
             peakWorkingSetBytes = @(257155072, 251711488, 252014592)
@@ -169,7 +169,7 @@ try {
             frozenWallClockBoundMilliseconds = 21000
             frozenPeakWorkingSetBoundBytes = 274726912
             statisticVerdict = 'PASS'
-            outcome = 'The available external samples satisfy the duration and peak predicates; this retrospective evaluation is not a substitute for the default five-run gated protocol.'
+            outcome = 'The comparison baseline satisfies the duration and peak predicates; it is not a substitute for the default five-run gated protocol.'
         }
         projectCount = $ProjectCount
         fixtureManifest = 'fixtures/expected.json'

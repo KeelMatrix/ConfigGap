@@ -123,13 +123,27 @@ $performanceGate = Get-Phase0BPerformanceGate -Report $performance -ExpectedObse
 if ($performanceGate.verdict -ne 'PASS') {
     throw "CONFIGGAP_EVIDENCE_PERFORMANCE_GATE: committed performance evidence failed: $($performanceGate.failureReasons -join '; ')"
 }
+$comparison = $performance.comparisonBaselineEvaluation
+if ($null -eq $comparison -or [int]$performance.acceptancePolicy.comparisonBaselineMinimumSamples -ne 3) {
+    throw 'CONFIGGAP_EVIDENCE_COMPARISON_BASELINE: comparison-baseline evidence or its minimum-sample policy is missing.'
+}
+$comparisonCounts = @($comparison.observationCounts)
+$comparisonDurations = @($comparison.durationMilliseconds)
+$comparisonPeaks = @($comparison.peakWorkingSetBytes)
+if ($comparisonCounts.Count -ne 3 -or $comparisonDurations.Count -ne 3 -or $comparisonPeaks.Count -ne 3) {
+    throw 'CONFIGGAP_EVIDENCE_COMPARISON_BASELINE: the comparison baseline must contain exactly three aligned samples.'
+}
+$comparisonRuns = for ($index = 0; $index -lt 3; $index++) {
+    [pscustomobject]@{
+        run = $index + 1
+        observationCount = [int]$comparisonCounts[$index]
+        durationMilliseconds = [long]$comparisonDurations[$index]
+        peakWorkingSetBytes = [long]$comparisonPeaks[$index]
+    }
+}
 $comparisonBaselineGate = Get-Phase0BPerformanceGate -Report ([pscustomobject]@{
         expectedObservationCount = 3302
-        runs = @(
-            [pscustomobject]@{ run = 1; observationCount = 3302; durationMilliseconds = 21274; peakWorkingSetBytes = 257155072 }
-            [pscustomobject]@{ run = 2; observationCount = 3302; durationMilliseconds = 19633; peakWorkingSetBytes = 251711488 }
-            [pscustomobject]@{ run = 3; observationCount = 3302; durationMilliseconds = 20129; peakWorkingSetBytes = 252014592 }
-        )
+        runs = @($comparisonRuns)
         frozenV1Baseline = $performance.frozenV1Baseline
     }) -ExpectedObservationCount 3302 -Retrospective
 if ($comparisonBaselineGate.verdict -ne 'PASS') {
