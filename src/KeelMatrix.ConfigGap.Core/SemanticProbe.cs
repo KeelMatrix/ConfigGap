@@ -730,12 +730,7 @@ public sealed class SemanticProbe
 
         if (!IsConfigurationSectionType(type))
         {
-            if (receiver is InvocationExpressionSyntax)
-            {
-                return [new StringResolution(null, "dynamic-section-prefix")];
-            }
-
-            return [];
+            return [new StringResolution(null, "dynamic-section-prefix")];
         }
 
         if (receiver is InvocationExpressionSyntax invocation &&
@@ -808,11 +803,9 @@ public sealed class SemanticProbe
             var callSiteArguments = FindParameterCallSiteArguments(method, parameter, compilation, cancellationToken);
             if (callSiteArguments.Count == 0)
             {
-                // A direct parameter receiver remains a supported v1 shape when
-                // no same-compilation call site provides contradictory section
-                // provenance. A visible section/unknown argument below makes
-                // the receiver informational instead of inventing a root key.
-                return [];
+                return IsKnownFrameworkRootParameter(method, parameter, compilation, cancellationToken)
+                    ? []
+                    : [new StringResolution(null, "dynamic-parameter-provenance")];
             }
 
             foreach (var (argument, callSiteModel) in callSiteArguments)
@@ -874,8 +867,10 @@ public sealed class SemanticProbe
         {
             var model = compilation.GetSemanticModel(invocation.SyntaxTree);
             if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol invokedMethod ||
-                !SymbolEqualityComparer.Default.Equals(invokedMethod.OriginalDefinition, method.OriginalDefinition) ||
-                !TryGetArgument(invocation, parameter, out var argument))
+                !SymbolEqualityComparer.Default.Equals(
+                    invokedMethod.ReducedFrom?.OriginalDefinition ?? invokedMethod.OriginalDefinition,
+                    method.OriginalDefinition) ||
+                !TryGetArgument(invocation, invokedMethod, parameter, out var argument))
             {
                 continue;
             }
@@ -892,12 +887,20 @@ public sealed class SemanticProbe
     {
         var callsByName = new Dictionary<string, List<InvocationExpressionSyntax>>(StringComparer.Ordinal);
         var objectCreations = new List<ObjectCreationExpressionSyntax>();
+        var dependencyInjectionServiceTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var tree in compilation.SyntaxTrees)
         {
             var root = tree.GetRoot(cancellationToken);
+            var model = compilation.GetSemanticModel(tree);
             objectCreations.AddRange(root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>());
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
+                AddDependencyInjectionServiceTypes(
+                    invocation,
+                    model,
+                    dependencyInjectionServiceTypes,
+                    cancellationToken);
+
                 var name = invocation.Expression switch
                 {
                     IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -919,7 +922,7 @@ public sealed class SemanticProbe
             }
         }
 
-        return new ParameterCallSiteIndex(callsByName, objectCreations);
+        return new ParameterCallSiteIndex(callsByName, objectCreations, dependencyInjectionServiceTypes);
     }
 
     private static StringResolution[] ResolveConfigurationMemberPrefix(
@@ -1067,6 +1070,16 @@ public sealed class SemanticProbe
         Compilation? compilation = null,
         HashSet<ISymbol>? visitedSymbols = null)
     {
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            return IsProvenRootConfigurationExpression(
+                parenthesized.Expression,
+                model,
+                cancellationToken,
+                compilation,
+                visitedSymbols);
+        }
+
         var type = model.GetTypeInfo(expression, cancellationToken).Type;
         if (type is null || !IsConfigurationType(type))
         {
@@ -1151,15 +1164,121 @@ public sealed class SemanticProbe
             "Microsoft.Extensions.Hosting.HostApplicationBuilder" or
             "Microsoft.Extensions.Hosting.IHostApplicationBuilder";
 
+    private static bool IsKnownFrameworkRootParameter(
+        IMethodSymbol method,
+        IParameterSymbol parameter,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        if (method.MethodKind != MethodKind.Constructor ||
+            parameter.Type.ToDisplayString() != "Microsoft.Extensions.Configuration.IConfiguration" ||
+            method.ContainingType is not { } containingType)
+        {
+            return false;
+        }
+
+        if (IsAspNetCoreStartupType(containingType) || DerivesFromAspNetCoreController(containingType))
+        {
+            return true;
+        }
+
+        var index = ParameterCallSiteIndexes.GetValue(
+            compilation,
+            currentCompilation => BuildParameterCallSiteIndex(currentCompilation, cancellationToken));
+        return index.DependencyInjectionServiceTypes.Contains(containingType) ||
+            index.DependencyInjectionServiceTypes.Contains(containingType.OriginalDefinition);
+    }
+
+    private static bool IsAspNetCoreStartupType(INamedTypeSymbol type) =>
+        type.Name == "Startup" &&
+        type.GetMembers("Configure").OfType<IMethodSymbol>().Any(method =>
+            !method.IsStatic &&
+            method.Parameters.Any(candidate =>
+                candidate.Type.ToDisplayString() == "Microsoft.AspNetCore.Builder.IApplicationBuilder")) &&
+        type.GetMembers("ConfigureServices").OfType<IMethodSymbol>().Any(method =>
+            !method.IsStatic &&
+            method.Parameters.Any(candidate =>
+                candidate.Type.ToDisplayString() == "Microsoft.Extensions.DependencyInjection.IServiceCollection"));
+
+    private static bool DerivesFromAspNetCoreController(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "Microsoft.AspNetCore.Mvc.ControllerBase")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddDependencyInjectionServiceTypes(
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        HashSet<ITypeSymbol> serviceTypes,
+        CancellationToken cancellationToken)
+    {
+        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol invokedMethod ||
+            invokedMethod.Name is not ("AddScoped" or "AddSingleton" or "AddTransient") ||
+            invokedMethod.ContainingNamespace?.ToDisplayString() != "Microsoft.Extensions.DependencyInjection" ||
+            (invokedMethod.ReducedFrom ?? invokedMethod).ContainingType?.Name != "ServiceCollectionServiceExtensions" ||
+            (invokedMethod.ReducedFrom ?? invokedMethod).Parameters.FirstOrDefault()?.Type.ToDisplayString() !=
+                "Microsoft.Extensions.DependencyInjection.IServiceCollection")
+        {
+            return;
+        }
+
+        foreach (var typeArgument in invokedMethod.TypeArguments.Where(type => type.TypeKind == TypeKind.Class))
+        {
+            serviceTypes.Add(typeArgument);
+            serviceTypes.Add(typeArgument.OriginalDefinition);
+        }
+
+        foreach (var typeOfExpression in invocation.ArgumentList.Arguments
+            .Select(argument => argument.Expression)
+            .OfType<TypeOfExpressionSyntax>())
+        {
+            if (model.GetTypeInfo(typeOfExpression.Type, cancellationToken).Type is { TypeKind: TypeKind.Class } serviceType)
+            {
+                serviceTypes.Add(serviceType);
+                serviceTypes.Add(serviceType.OriginalDefinition);
+            }
+        }
+    }
+
     private sealed record ParameterCallSiteIndex(
         Dictionary<string, List<InvocationExpressionSyntax>> CallsByName,
-        List<ObjectCreationExpressionSyntax> ObjectCreations);
+        List<ObjectCreationExpressionSyntax> ObjectCreations,
+        HashSet<ITypeSymbol> DependencyInjectionServiceTypes);
 
     private static bool TryGetArgument(
         InvocationExpressionSyntax invocation,
-        IParameterSymbol parameter,
-        out ExpressionSyntax argument) =>
-        TryGetArgument(invocation.ArgumentList, parameter, out argument);
+        IMethodSymbol invokedMethod,
+        IParameterSymbol declaredParameter,
+        out ExpressionSyntax argument)
+    {
+        if (invokedMethod.ReducedFrom is not null)
+        {
+            if (declaredParameter.Ordinal == 0 &&
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+            {
+                argument = memberAccess.Expression;
+                return true;
+            }
+
+            var reducedOrdinal = declaredParameter.Ordinal - 1;
+            if (reducedOrdinal < 0 || reducedOrdinal >= invokedMethod.Parameters.Length)
+            {
+                argument = null!;
+                return false;
+            }
+
+            return TryGetArgument(invocation.ArgumentList, invokedMethod.Parameters[reducedOrdinal], out argument);
+        }
+
+        return TryGetArgument(invocation.ArgumentList, declaredParameter, out argument);
+    }
 
     private static bool TryGetArgument(
         ArgumentListSyntax? argumentList,

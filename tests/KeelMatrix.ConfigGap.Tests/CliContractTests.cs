@@ -81,11 +81,53 @@ public sealed class CliContractTests
             .Where(finding => finding.GetProperty("source").GetString()?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(7, findings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
+        Assert.Equal(9, findings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
         Assert.DoesNotContain(findings, finding => finding.GetProperty("code").GetString() == "CG001");
         Assert.Contains("ConstructorFieldRoot", readKeys);
         Assert.Contains("ConstructorPropertyRoot", readKeys);
         Assert.DoesNotContain("ConstructorAssignedSectionOnly", readKeys);
+        Assert.DoesNotContain("UnseenCallerLeaf", readKeys);
+        Assert.DoesNotContain("UnseenWrappedLeaf", readKeys);
+    }
+
+    [Theory]
+    [InlineData("fixtures/FixtureConsumer/appsettings.json", "UnseenCallerLeaf", true)]
+    [InlineData("fixtures/FixtureConsumer/appsettings.receiver-provenance-section.json", "Payments:UnseenCallerLeaf", false)]
+    public async Task CliKeepsParameterWithoutVisibleCallSiteUnknownForEveryDeclarationShape(
+        string configurationPath,
+        string declaredKey,
+        bool expectUnusedDeclaration)
+    {
+        var result = await RunAsync(
+            "check",
+            "--project", ConsumerProject,
+            "--config", configurationPath,
+            "--format", "json");
+
+        using var report = JsonDocument.Parse(result.Output);
+        var readKeys = report.RootElement.GetProperty("actuallyReadKeys")
+            .EnumerateArray()
+            .Select(key => key.GetString())
+            .ToArray();
+        var findings = report.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        var sourceFindings = findings
+            .Where(finding => finding.GetProperty("source").GetString()?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.Equal(9, sourceFindings.Count(finding => finding.GetProperty("code").GetString() == "CG900"));
+        Assert.DoesNotContain(sourceFindings, finding =>
+            finding.GetProperty("code").GetString() == "CG001" &&
+            finding.GetProperty("key").GetString() is "UnseenCallerLeaf" or "UnseenWrappedLeaf");
+        Assert.DoesNotContain(readKeys, key => key is "UnseenCallerLeaf" or "UnseenWrappedLeaf");
+        if (expectUnusedDeclaration)
+        {
+            Assert.Contains(findings, finding =>
+                finding.GetProperty("code").GetString() == "CG002" &&
+                finding.GetProperty("key").GetString() == declaredKey);
+            Assert.Contains(findings, finding =>
+                finding.GetProperty("code").GetString() == "CG002" &&
+                finding.GetProperty("key").GetString() == "UnseenWrappedLeaf");
+        }
     }
 
     [Theory]
@@ -272,6 +314,7 @@ public sealed class CliContractTests
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Usage:", result.Output, StringComparison.Ordinal);
+        Assert.Contains("no visible same-compilation call site is CG900 unknown", result.Output, StringComparison.Ordinal);
         Assert.Empty(result.Error);
     }
 

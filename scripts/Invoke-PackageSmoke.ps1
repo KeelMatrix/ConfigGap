@@ -30,6 +30,16 @@ function Invoke-Tool {
     finally { Pop-Location }
 }
 
+function Invoke-SourceTool {
+    param([string]$WorkingDirectory, [string[]]$Arguments)
+    Push-Location -LiteralPath $WorkingDirectory
+    try {
+        $output = (& dotnet $sourceToolPath @Arguments 2>&1 | Out-String).TrimEnd()
+        return [PSCustomObject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+    }
+    finally { Pop-Location }
+}
+
 function Copy-Sample {
     param([string]$Destination)
     New-Item -ItemType Directory -Path $Destination -Force | Out-Null
@@ -83,6 +93,36 @@ function Assert-JsonCase {
     return $result
 }
 
+function Assert-ReceiverProvenanceCase {
+    param(
+        [string]$Name,
+        [string]$Root,
+        [bool]$ExpectUnusedRootDeclaration
+    )
+
+    $installedResult = Assert-JsonCase -Name $Name -Root $Root -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true
+    $sourceResult = Invoke-SourceTool -WorkingDirectory $Root -Arguments @('check', '--project', 'FixtureClean.csproj', '--config', 'configgap.json', '--format', 'json')
+    Assert-Contract ($sourceResult.ExitCode -eq $installedResult.ExitCode) "$Name source-built and installed tools returned different exit codes."
+    Assert-Contract ($sourceResult.Output -ceq $installedResult.Output) "$Name source-built and installed tool reports differ."
+
+    $report = $installedResult.Output | ConvertFrom-Json
+    $findings = @($report.findings)
+    $receiverFindings = @($findings | Where-Object { $_.source -eq 'ReceiverProvenance.cs' })
+    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG900' }).Count -eq 9) "$Name did not report all nine unproven parameter/property/field receivers as CG900."
+    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG001' }).Count -eq 0) "$Name invented a blocking root key for an unproven receiver."
+    foreach ($key in @('ParameterRootOnly', 'ParameterSectionOnly', 'PropertyRootOnly', 'PropertySectionOnly', 'FieldRootOnly', 'FieldSectionOnly', 'UnseenCallerLeaf', 'UnseenWrappedLeaf')) {
+        Assert-Contract (@($report.actuallyReadKeys) -notcontains $key) "$Name incorrectly reported '$key' as a root read."
+    }
+    Assert-Contract (@($report.actuallyReadKeys) -contains 'ProvenRootRead') "$Name dropped a helper parameter passed a proven-root alias."
+    Assert-Contract (@($report.actuallyReadKeys) -contains 'ConstructorFieldRoot') "$Name dropped a constructor-assigned root field."
+    Assert-Contract (@($report.actuallyReadKeys) -contains 'ConstructorPropertyRoot') "$Name dropped a constructor-assigned root property."
+    Assert-Contract (@($report.actuallyReadKeys) -notcontains 'ConstructorAssignedSectionOnly') "$Name reported a constructor-assigned section as a root read."
+    if ($ExpectUnusedRootDeclaration) {
+        Assert-Contract (@($findings | Where-Object { $_.code -eq 'CG002' -and $_.key -eq 'UnseenCallerLeaf' }).Count -eq 1) "$Name did not report the unused root-shaped declaration."
+        Assert-Contract (@($findings | Where-Object { $_.code -eq 'CG002' -and $_.key -eq 'UnseenWrappedLeaf' }).Count -eq 1) "$Name did not report the unused wrapped-receiver declaration."
+    }
+}
+
 $repo = Split-Path -Parent $PSScriptRoot
 Assert-Contract (Test-Path -LiteralPath $PackagePath -PathType Leaf) "Package was not found: $PackagePath"
 
@@ -98,13 +138,16 @@ $clean = Join-Path $smokeRoot 'clean'
 $missing = Join-Path $smokeRoot 'missing'
 $dynamic = Join-Path $smokeRoot 'dynamic'
 $counterexample = Join-Path $smokeRoot 'counterexample'
-$receiverProvenance = Join-Path $smokeRoot 'receiver-provenance'
+$receiverProvenanceRoot = Join-Path $smokeRoot 'receiver-provenance-root'
+$receiverProvenanceSection = Join-Path $smokeRoot 'receiver-provenance-section'
 $toolExecutable = if ([OperatingSystem]::IsWindows()) { 'configgap.exe' } else { 'configgap' }
 $toolPath = Join-Path $install $toolExecutable
+$sourceToolPath = Join-Path $repo 'src/KeelMatrix.ConfigGap/bin/Release/net8.0/KeelMatrix.ConfigGap.dll'
 $isolatedTelemetryCache = Join-Path $nugetPackages 'keelmatrix.telemetry\0.1.1'
 $saved = @{}
 
 try {
+    Assert-Contract (Test-Path -LiteralPath $sourceToolPath -PathType Leaf) "Source-built tool was not found: $sourceToolPath"
     New-Item -ItemType Directory -Path $feed, $install, $nugetPackages, $httpCache, $pluginsCache, $dotnetHome -Force | Out-Null
     Copy-Item -LiteralPath (Resolve-Path -LiteralPath $PackagePath).Path -Destination $feed
     @"
@@ -139,7 +182,8 @@ try {
     Copy-Sample -Destination $missing
     Copy-Sample -Destination $dynamic
     Copy-Sample -Destination $counterexample
-    Copy-Sample -Destination $receiverProvenance
+    Copy-Sample -Destination $receiverProvenanceRoot
+    Copy-Sample -Destination $receiverProvenanceSection
     $missingSource = Get-Content -Raw -LiteralPath (Join-Path $missing 'ConfigurationUse.cs')
     $missingSource = $missingSource.Replace('configuration["Clean:Key"]', 'configuration["Missing:Key"]')
     Set-Content -LiteralPath (Join-Path $missing 'ConfigurationUse.cs') -Value $missingSource -Encoding utf8NoBOM
@@ -151,11 +195,17 @@ namespace FixtureClean;
 
 public static class ConfigurationCounterexamples
 {
+    private static IConfigurationRoot Root { get; } = null!;
+
     public static string? Read(IConfiguration configuration, string sectionName)
     {
         configuration.GetSection(sectionName).Bind(new Settings());
         return configuration.GetValue<string>("Primary", configuration["Fallback"]!);
     }
+
+    public static string? ExerciseProvenRootCallSite() => Read(Root, GetDynamicSection());
+
+    private static string GetDynamicSection() => string.Empty;
 
     private sealed class Settings
     {
@@ -163,8 +213,9 @@ public static class ConfigurationCounterexamples
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $counterexample 'ConfigurationCounterexamples.cs') -Encoding utf8NoBOM
-    Set-Content -LiteralPath (Join-Path $receiverProvenance 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ConstructorFieldRoot":null,"ConstructorPropertyRoot":null,"ProvenRootRead":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null,"ConstructorAssignedSectionOnly":null}}' -Encoding utf8NoBOM
-    @'
+    Set-Content -LiteralPath (Join-Path $receiverProvenanceRoot 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ConstructorFieldRoot":null,"ConstructorPropertyRoot":null,"ProvenRootRead":null,"UnseenCallerLeaf":null,"UnseenWrappedLeaf":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null,"ConstructorAssignedSectionOnly":null}}' -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $receiverProvenanceSection 'appsettings.json') -Value '{"Clean":{"Key":null},"ParameterRootOnly":null,"PropertyRootOnly":null,"FieldRootOnly":null,"ConstructorFieldRoot":null,"ConstructorPropertyRoot":null,"ProvenRootRead":null,"Payments":{"ParameterSectionOnly":null,"PropertySectionOnly":null,"FieldSectionOnly":null,"ConstructorAssignedSectionOnly":null,"UnseenCallerLeaf":null,"UnseenWrappedLeaf":null}}' -Encoding utf8NoBOM
+    $receiverSource = @'
 using Microsoft.Extensions.Configuration;
 
 namespace FixtureClean;
@@ -174,6 +225,10 @@ public static class ReceiverProvenance
     private static IConfigurationRoot Root { get; } = null!;
     private static IConfiguration SectionProperty => Root.GetSection("Payments");
     private static IConfiguration SectionField = Root.GetSection("Payments");
+
+    public static string? ExternalEntryPoint(IConfiguration configuration) => configuration["UnseenCallerLeaf"];
+
+    public static string? ExternalEntryPointParenthesized(IConfiguration configuration) => (configuration)["UnseenWrappedLeaf"];
 
     public static string? ParameterRootOnly() => ReadParameterRootOnly(Root.GetSection("Payments"));
     public static string? ParameterSectionOnly() => ReadParameterSectionOnly(Root.GetSection("Payments"));
@@ -186,6 +241,12 @@ public static class ReceiverProvenance
     {
         IConfiguration alias = Root;
         return ReadProvenRoot(alias);
+    }
+
+    public static string? ConstructorAssignedRoot()
+    {
+        var receiver = new ConstructorAssignedReceiver(Root);
+        return receiver.ReadField() ?? receiver.ReadProperty();
     }
 
     public static string? ConstructorAssignedSectionOnly() =>
@@ -222,7 +283,10 @@ public sealed class ConstructorAssignedSectionReceiver
 
     public string? Read() => _field["ConstructorAssignedSectionOnly"];
 }
-'@ | Set-Content -LiteralPath (Join-Path $receiverProvenance 'ReceiverProvenance.cs') -Encoding utf8NoBOM
+'@
+    foreach ($root in @($receiverProvenanceRoot, $receiverProvenanceSection)) {
+        Set-Content -LiteralPath (Join-Path $root 'ReceiverProvenance.cs') -Value $receiverSource -Encoding utf8NoBOM
+    }
 
     [void](Assert-JsonCase -Name 'clean case' -Root $clean -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true)
     $missingResult = Assert-JsonCase -Name 'missing declaration case' -Root $missing -ExpectedExitCode 1 -ExpectBlocking $true -ExpectDynamic $true
@@ -233,19 +297,9 @@ public sealed class ConstructorAssignedSectionReceiver
     Assert-Contract (@($counterexampleReport.actuallyReadKeys) -contains 'Fallback') 'The installed tool dropped the independently evaluated Fallback read.'
     Assert-Contract (@($counterexampleReport.findings | Where-Object { $_.code -eq 'CG900' -and $_.source -eq 'ConfigurationCounterexamples.cs' }).Count -gt 0) 'The installed tool dropped the unknown Bind observation.'
     Assert-Contract ($counterexampleResult.Output -match 'Fallback') 'The installed tool did not report the preserved Fallback read.'
-    $receiverResult = Assert-JsonCase -Name 'receiver provenance case' -Root $receiverProvenance -ExpectedExitCode 0 -ExpectBlocking $false -ExpectDynamic $true
-    $receiverReport = $receiverResult.Output | ConvertFrom-Json
-    $receiverFindings = @($receiverReport.findings | Where-Object { $_.source -eq 'ReceiverProvenance.cs' })
-    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG900' }).Count -eq 7) 'The installed tool did not report all seven unproven parameter/property/field receivers as CG900.'
-    Assert-Contract ($receiverFindings.Where({ $_.code -eq 'CG001' }).Count -eq 0) 'The installed tool invented a blocking root key for an unproven receiver.'
-    foreach ($key in @('ParameterRootOnly', 'ParameterSectionOnly', 'PropertyRootOnly', 'PropertySectionOnly', 'FieldRootOnly', 'FieldSectionOnly')) {
-        Assert-Contract (@($receiverReport.actuallyReadKeys) -notcontains $key) "The installed tool incorrectly reported '$key' as a root read."
-    }
-    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ProvenRootRead') 'The installed tool did not preserve a helper parameter passed a proven-root alias.'
-    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ConstructorFieldRoot') 'The installed tool did not preserve a constructor-assigned root field.'
-    Assert-Contract (@($receiverReport.actuallyReadKeys) -contains 'ConstructorPropertyRoot') 'The installed tool did not preserve a constructor-assigned root property.'
-    Assert-Contract (@($receiverReport.actuallyReadKeys) -notcontains 'ConstructorAssignedSectionOnly') 'The installed tool incorrectly reported a constructor-assigned section as a root read.'
-    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, unknown Bind, and unproven receiver provenance.'
+    Assert-ReceiverProvenanceCase -Name 'root-shaped receiver provenance case' -Root $receiverProvenanceRoot -ExpectUnusedRootDeclaration $true
+    Assert-ReceiverProvenanceCase -Name 'section-shaped receiver provenance case' -Root $receiverProvenanceSection -ExpectUnusedRootDeclaration $false
+    Write-Output 'Isolated package-consumer smoke passed: clean, blocking missing declaration, dynamic key, preserved fallback read, unknown Bind, and source/installed-equivalent receiver provenance.'
 }
 finally {
     foreach ($name in $saved.Keys) {

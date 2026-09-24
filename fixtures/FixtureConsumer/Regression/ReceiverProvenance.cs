@@ -10,6 +10,12 @@ public static class ReceiverProvenance
 
     private static IConfiguration SectionField = Root.GetSection("Payments");
 
+    public static string? ExternalEntryPoint(IConfiguration configuration) =>
+        configuration["UnseenCallerLeaf"];
+
+    public static string? ExternalEntryPointParenthesized(IConfiguration configuration) =>
+        (configuration)["UnseenWrappedLeaf"];
+
     public static string? ParameterRootOnly() => ReadParameterRootOnly(Root.GetSection("Payments"));
 
     public static string? ParameterSectionOnly() => ReadParameterSectionOnly(Root.GetSection("Payments"));
@@ -26,6 +32,12 @@ public static class ReceiverProvenance
     {
         IConfiguration alias = Root;
         return ReadProvenRoot(alias);
+    }
+
+    public static string? ConstructorAssignedRoot()
+    {
+        var receiver = new ConstructorAssignedReceiver(Root);
+        return receiver.ReadField() ?? receiver.ReadProperty();
     }
 
     public static string? ConstructorAssignedSectionOnly() =>

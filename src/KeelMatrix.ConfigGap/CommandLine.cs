@@ -86,6 +86,11 @@ internal static class CommandLineParser
           --config <path>    appsettings*.json/.env.example, or a version 1 ConfigGap surface file.
           --format text|json Human diagnostics (default) or the versioned local JSON report.
 
+        Analysis:
+          Literal IConfiguration reads require statically proven root provenance.
+          Bounded ASP.NET Core Startup, controller, and registered-service activation is recognized.
+          Otherwise, no visible same-compilation call site is CG900 unknown, not an assumed root.
+
         Exit codes:
           0  Complete trustworthy analysis with no blocking missing-key finding.
           1  Complete trustworthy analysis with one or more CG001 findings.

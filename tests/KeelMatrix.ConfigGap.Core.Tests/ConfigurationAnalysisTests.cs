@@ -169,16 +169,56 @@ public sealed class ConfigurationAnalysisTests
             .Where(finding => finding.Source?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(7, findings.Count(finding => finding.Code == "CG900"));
+        Assert.Equal(9, findings.Count(finding => finding.Code == "CG900"));
         Assert.DoesNotContain(findings, finding => finding.Code == "CG001");
         Assert.Contains("ProvenRootRead", result.Report.ActuallyReadKeys);
         Assert.Contains("ConstructorFieldRoot", result.Report.ActuallyReadKeys);
         Assert.Contains("ConstructorPropertyRoot", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain("UnseenCallerLeaf", result.Report.ActuallyReadKeys);
+        Assert.DoesNotContain("UnseenWrappedLeaf", result.Report.ActuallyReadKeys);
         Assert.DoesNotContain(result.Report.ActuallyReadKeys, key => key is
             "ParameterRootOnly" or "ParameterSectionOnly" or
             "PropertyRootOnly" or "PropertySectionOnly" or
             "FieldRootOnly" or "FieldSectionOnly" or
             "ConstructorAssignedSectionOnly");
+    }
+
+    [Fact]
+    public async Task BoundedFrameworkAndReducedExtensionProvenancePreserveRootReads()
+    {
+        var result = await AnalyzeFixtureAsync();
+        var sourceFindings = result.Report.Findings
+            .Where(finding => finding.Source?.EndsWith("FrameworkRootProvenance.cs", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.DoesNotContain(sourceFindings, finding => finding.Code == "CG900");
+        Assert.Contains("StartupRoot", result.Report.ActuallyReadKeys);
+        Assert.Contains("ControllerRoot", result.Report.ActuallyReadKeys);
+        Assert.Contains("RegisteredRoot", result.Report.ActuallyReadKeys);
+        Assert.Contains("ReducedExtensionRoot", result.Report.ActuallyReadKeys);
+    }
+
+    [Theory]
+    [InlineData("fixtures/FixtureConsumer/appsettings.json", "UnseenCallerLeaf", true)]
+    [InlineData("fixtures/FixtureConsumer/appsettings.receiver-provenance-section.json", "Payments:UnseenCallerLeaf", false)]
+    public async Task ParameterWithoutVisibleCallSiteRemainsUnknownForEveryDeclarationShape(
+        string configurationPath,
+        string declaredKey,
+        bool expectUnusedDeclaration)
+    {
+        var result = await AnalyzeFixtureAsync(configurationPath);
+        var findings = result.Report.Findings
+            .Where(finding => finding.Source?.EndsWith("ReceiverProvenance.cs", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.Equal(9, findings.Count(finding => finding.Code == "CG900"));
+        Assert.DoesNotContain(findings, finding => finding.Code == "CG001" && finding.Key is "UnseenCallerLeaf" or "UnseenWrappedLeaf");
+        Assert.DoesNotContain(result.Report.ActuallyReadKeys, key => key is "UnseenCallerLeaf" or "UnseenWrappedLeaf");
+        if (expectUnusedDeclaration)
+        {
+            Assert.Contains(result.Report.Findings, finding => finding.Code == "CG002" && finding.Key == declaredKey);
+            Assert.Contains(result.Report.Findings, finding => finding.Code == "CG002" && finding.Key == "UnseenWrappedLeaf");
+        }
     }
 
     [Theory]
@@ -314,12 +354,15 @@ public sealed class ConfigurationAnalysisTests
         Assert.DoesNotContain("secret", failureMessage, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<ConfigGapAnalysisResult> AnalyzeFixtureAsync()
+    private static async Task<ConfigGapAnalysisResult> AnalyzeFixtureAsync(string? configurationPath = null)
     {
         return await ConfigurationAnalysisEngine.AnalyzeAsync(new ConfigGapAnalysisOptions
         {
             RepositoryRoot = RepositoryRoot,
-            SolutionPath = Path.Combine(RepositoryRoot, "KeelMatrix.ConfigGap.sln")
+            SolutionPath = Path.Combine(RepositoryRoot, "KeelMatrix.ConfigGap.sln"),
+            ConfigurationPath = configurationPath is null
+                ? null
+                : Path.Combine(RepositoryRoot, configurationPath)
         });
     }
 
