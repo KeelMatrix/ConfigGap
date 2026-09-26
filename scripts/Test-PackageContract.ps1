@@ -71,7 +71,7 @@ function Invoke-InspectorExpectFailure {
     )
 
     $inspector = Join-Path $PSScriptRoot 'Inspect-Package.ps1'
-    $output = (& pwsh -NoProfile -File $inspector -PackagePath $MutatedPackagePath -SymbolsPath $MutatedSymbolsPath -ExpectedVersion $ExpectedVersion 2>&1 | Out-String)
+    $output = (& pwsh -NoProfile -WindowStyle Hidden -File $inspector -PackagePath $MutatedPackagePath -SymbolsPath $MutatedSymbolsPath -ExpectedVersion $ExpectedVersion 2>&1 | Out-String)
     $exitCode = $LASTEXITCODE
     Assert-Contract ($exitCode -ne 0) "The package inspector accepted the $CaseName mutation."
     Assert-Contract ($output -match $ExpectedMessage) "The package inspector rejected the $CaseName mutation for an unexpected reason: $output"

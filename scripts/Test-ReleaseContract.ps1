@@ -41,7 +41,7 @@ try {
 
 - Planned work.
 '@ | Set-Content -LiteralPath (Join-Path $fixture 'CHANGELOG.md') -Encoding utf8NoBOM
-    $plannedOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
+    $plannedOutput = (& pwsh -NoProfile -WindowStyle Hidden -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
     Assert-Contract ($LASTEXITCODE -ne 0 -and $plannedOutput -match 'no dated') 'The release contract accepted a changelog with only Unreleased.'
 
     $negativeCases = @(
@@ -93,7 +93,7 @@ try {
     )
     foreach ($case in $negativeCases) {
         $case.Text | Set-Content -LiteralPath (Join-Path $fixture 'CHANGELOG.md') -Encoding utf8NoBOM
-        $negativeOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
+        $negativeOutput = (& pwsh -NoProfile -WindowStyle Hidden -File $checker -Version 0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
         Assert-Contract ($LASTEXITCODE -ne 0 -and $negativeOutput -match $case.Pattern) "The release contract accepted the $($case.Name) case."
     }
 
@@ -108,7 +108,7 @@ try {
 
 - Static analysis for declared .NET configuration usage.
 '@ | Set-Content -LiteralPath (Join-Path $fixture 'CHANGELOG.md') -Encoding utf8NoBOM
-    & pwsh -NoProfile -File $checker -Version 0.1.0 -TagName v0.1.0 -FirstRelease -RepositoryRoot $fixture
+    & pwsh -NoProfile -WindowStyle Hidden -File $checker -Version 0.1.0 -TagName v0.1.0 -FirstRelease -RepositoryRoot $fixture
     Assert-Contract ($LASTEXITCODE -eq 0) 'The release contract rejected a finalized matching changelog.'
 
     @'
@@ -119,7 +119,7 @@ try {
   </PropertyGroup>
 </Project>
 '@ | Set-Content -LiteralPath (Join-Path $fixture 'Directory.Build.props') -Encoding utf8NoBOM
-    $mismatchOutput = (& pwsh -NoProfile -File $checker -Version 0.1.0 -TagName v0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
+    $mismatchOutput = (& pwsh -NoProfile -WindowStyle Hidden -File $checker -Version 0.1.0 -TagName v0.1.0 -FirstRelease -RepositoryRoot $fixture 2>&1 | Out-String)
     Assert-Contract ($LASTEXITCODE -ne 0 -and $mismatchOutput -match 'expected') 'The release contract accepted a source version mismatch.'
     Write-Output 'Release contract tests passed: Unreleased rejection, impossible-date rejection, empty-entry rejection, disallowed-category rejection, finalized match, and version mismatch rejection.'
 }
