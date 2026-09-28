@@ -39,6 +39,14 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./scripts/Test-PublicHistoryHygiene.ps1
 
+      - name: Verify hidden child PowerShell launches
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build/Test-NestedPwshLaunch.ps1 -SelfTest
+
+      - name: Verify repository child PowerShell launches
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build/Test-NestedPwshLaunch.ps1
+
       - name: Check committed evaluation evidence
         shell: pwsh
         run: pwsh -NoProfile -File ./scripts/Test-Phase0BEvidence.ps1

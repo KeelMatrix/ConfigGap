@@ -13,6 +13,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../build/Invoke-NestedPwsh.ps1')
+$nestedPwshExecutable = 'pwsh'
 
 function Assert-Contract {
     param([bool]$Condition, [string]$Message)
@@ -21,7 +23,12 @@ function Assert-Contract {
 
 function Invoke-Checked {
     param([string]$File, [string[]]$Arguments)
-    & $File @Arguments
+    if ($File -match '^(?i:pwsh|powershell)(?:\.exe)?$') {
+        Invoke-NestedPwsh -ArgumentList $Arguments
+    }
+    else {
+        & $File @Arguments
+    }
     if ($LASTEXITCODE -ne 0) { throw "Command '$File' failed with exit code $LASTEXITCODE." }
 }
 
@@ -80,7 +87,7 @@ try {
     $secondSymbols = Join-Path $second $expected[1]
     Assert-Contract ((Get-CanonicalArchiveHash $firstPackage) -ceq (Get-CanonicalArchiveHash $secondPackage)) 'Repeat tool packs are not deterministic.'
     Assert-Contract ((Get-CanonicalArchiveHash $firstSymbols) -ceq (Get-CanonicalArchiveHash $secondSymbols)) 'Repeat symbol packs are not deterministic.'
-    Invoke-Checked -File 'pwsh' -Arguments @('-NoProfile', '-File', $inspector, '-PackagePath', $PackagePath, '-SymbolsPath', $SymbolsPath, '-ExpectedVersion', $ExpectedVersion, '-ExpectedRepositoryCommit', $commit)
+    Invoke-Checked -File $nestedPwshExecutable -Arguments @('-NoProfile', '-File', $inspector, '-PackagePath', $PackagePath, '-SymbolsPath', $SymbolsPath, '-ExpectedVersion', $ExpectedVersion, '-ExpectedRepositoryCommit', $commit)
     Write-Output "Repeat-pack determinism passed for $ExpectedVersion."
     Write-Output "Tool package SHA256: $((Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash)"
     Write-Output "Symbol package SHA256: $((Get-FileHash -LiteralPath $SymbolsPath -Algorithm SHA256).Hash)"

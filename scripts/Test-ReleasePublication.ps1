@@ -2,6 +2,7 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../build/Invoke-NestedPwsh.ps1')
 Set-StrictMode -Version Latest
 
 function Assert-Contract {
@@ -28,7 +29,7 @@ function Invoke-PublicationScenario {
 
     Remove-Item -LiteralPath $LogPath, $StatePath -Force -ErrorAction SilentlyContinue
     $env:CONFIGGAP_STUB_FAIL_ON_CALL = [string]$FailOnCall
-    $output = (& pwsh -NoProfile -WindowStyle Hidden -File $publisher -PackagePath $PackagePath -SymbolsPath $SymbolsPath -DotnetCommand $StubPath 2>&1 | Out-String)
+    $output = (Invoke-NestedPwsh -NoProfile -File $publisher -PackagePath $PackagePath -SymbolsPath $SymbolsPath -DotnetCommand $StubPath 2>&1 | Out-String)
     $exitCode = $LASTEXITCODE
     Assert-Contract ($exitCode -eq $ExpectedExitCode) "$Name returned exit code $exitCode instead of $ExpectedExitCode.`n$output"
 

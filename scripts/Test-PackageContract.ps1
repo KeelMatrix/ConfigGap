@@ -8,6 +8,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../build/Invoke-NestedPwsh.ps1')
+& (Join-Path $PSScriptRoot '../build/Test-NestedPwshLaunch.ps1') -SelfTest
+if ($LASTEXITCODE -ne 0) { throw 'Nested PowerShell launch guard self-test failed.' }
+& (Join-Path $PSScriptRoot '../build/Test-NestedPwshLaunch.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Nested PowerShell launch guard failed.' }
 Set-StrictMode -Version Latest
 
 function Assert-Contract {
@@ -71,7 +76,7 @@ function Invoke-InspectorExpectFailure {
     )
 
     $inspector = Join-Path $PSScriptRoot 'Inspect-Package.ps1'
-    $output = (& pwsh -NoProfile -WindowStyle Hidden -File $inspector -PackagePath $MutatedPackagePath -SymbolsPath $MutatedSymbolsPath -ExpectedVersion $ExpectedVersion 2>&1 | Out-String)
+    $output = (Invoke-NestedPwsh -NoProfile -File $inspector -PackagePath $MutatedPackagePath -SymbolsPath $MutatedSymbolsPath -ExpectedVersion $ExpectedVersion 2>&1 | Out-String)
     $exitCode = $LASTEXITCODE
     Assert-Contract ($exitCode -ne 0) "The package inspector accepted the $CaseName mutation."
     Assert-Contract ($output -match $ExpectedMessage) "The package inspector rejected the $CaseName mutation for an unexpected reason: $output"
