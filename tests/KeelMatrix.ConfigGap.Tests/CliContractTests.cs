@@ -438,7 +438,8 @@ public sealed class CliContractTests
             WorkingDirectory = RepositoryRoot,
             UseShellExecute = false,
             RedirectStandardOutput = true,
-            RedirectStandardError = true
+            RedirectStandardError = true,
+            CreateNoWindow = true
         };
         startInfo.ArgumentList.Add(typeof(ConfigGapApplication).Assembly.Location);
         startInfo.ArgumentList.Add("check");
