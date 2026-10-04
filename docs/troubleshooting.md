@@ -22,4 +22,4 @@ Analysis stops after 120 seconds, accepts at most 128 declaration surfaces, and 
 
 ## Privacy
 
-Key names can reveal architecture. Review local text or JSON output before sharing it. Values, source content, project identity, and report contents are not sent to telemetry. Use `KEELMATRIX_NO_TELEMETRY=1` for validation runs.
+Key names can reveal architecture. Review local text or JSON output before sharing it. ConfigGap does not pass analysis results or configuration data into its shared telemetry calls. Use `KEELMATRIX_NO_TELEMETRY=1` for validation runs.

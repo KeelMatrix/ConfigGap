@@ -19,4 +19,4 @@ An `IConfiguration` parameter, property, or field that may hold a section or who
 
 ConfigGap does not validate runtime startup state, inspect secret values, read actual `.env` files by default, or analyze Kubernetes, Helm, Terraform, Docker Compose, cloud parameter stores, hosted inventories, arbitrary custom providers, remote configuration, deployment manifests, or automatic configuration changes.
 
-Analysis stays local. Key names may reveal architecture, so review reports before sharing them. Optional telemetry uses the shared activation/heartbeat contract and never receives keys, values, paths, or report contents. See [`PRIVACY.md`](../PRIVACY.md) for the data boundary and controls.
+Analysis stays local. Key names may reveal architecture, so review reports before sharing them. ConfigGap requests shared activation and heartbeat calls only after a complete trustworthy analysis and does not pass analysis results or configuration data into those calls. See [`PRIVACY.md`](../PRIVACY.md) for the data boundary and controls.

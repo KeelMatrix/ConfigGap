@@ -67,14 +67,7 @@ internal static class ConfigGapApplication
 
         if (report.TrustworthyAnalysis)
         {
-            try
-            {
-                telemetry.RecordSuccessfulAnalysis();
-            }
-            catch
-            {
-                // A failing telemetry adapter is never an analysis failure.
-            }
+            telemetry.RecordSuccessfulAnalysis();
         }
 
         return report.ExitCode;

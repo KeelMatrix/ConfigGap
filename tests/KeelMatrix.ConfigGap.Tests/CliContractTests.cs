@@ -380,27 +380,23 @@ public sealed class CliContractTests
     }
 
     [Fact]
-    public async Task TelemetryIsRequestedOnlyAfterTrustworthyAnalysis()
+    public async Task TelemetryIsRequestedForEachTrustworthyAnalysisOnly()
     {
         var telemetry = new RecordingTelemetry();
-        var result = await RunAsync(
+        var first = await RunAsync(
             ["check", "--project", CleanProject, "--config", CleanConfig, "--format", "json"],
             telemetry);
+        var second = await RunAsync(
+            ["check", "--project", CleanProject, "--config", CleanConfig, "--format", "json"],
+            telemetry);
+        var failed = await RunAsync(
+            ["check", "--project", Path.Combine("fixtures", "FixtureBroken", "FixtureBroken.csproj"), "--format", "json"],
+            telemetry);
 
-        Assert.True(result.ExitCode == 0, result.Error + result.Output);
-        Assert.Equal(1, telemetry.Calls);
-    }
-
-    [Fact]
-    public async Task TelemetryFailureIsNonFatalAndFailedWorkspaceDoesNotActivate()
-    {
-        var throwingTelemetry = new ThrowingTelemetry();
-        var clean = await RunAsync(["check", "--project", CleanProject, "--config", CleanConfig], throwingTelemetry);
-        var broken = await RunAsync(["check", "--project", Path.Combine("fixtures", "FixtureBroken", "FixtureBroken.csproj")], throwingTelemetry);
-
-        Assert.True(clean.ExitCode == 0, clean.Error + clean.Output);
-        Assert.Equal(2, broken.ExitCode);
-        Assert.Equal(1, throwingTelemetry.Calls);
+        Assert.True(first.ExitCode == 0, first.Error + first.Output);
+        Assert.True(second.ExitCode == 0, second.Error + second.Output);
+        Assert.Equal(2, failed.ExitCode);
+        Assert.Equal(2, telemetry.Calls);
     }
 
     [Fact]
@@ -499,14 +495,4 @@ public sealed class CliContractTests
         public void RecordSuccessfulAnalysis() => Calls++;
     }
 
-    private sealed class ThrowingTelemetry : IUsageTelemetry
-    {
-        public int Calls { get; private set; }
-
-        public void RecordSuccessfulAnalysis()
-        {
-            Calls++;
-            throw new InvalidOperationException("synthetic telemetry failure");
-        }
-    }
 }

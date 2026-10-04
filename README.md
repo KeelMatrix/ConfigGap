@@ -73,7 +73,7 @@ Exit code `0` means a trustworthy analysis completed without blocking findings. 
 
 ## Privacy and telemetry
 
-Configuration key names may reveal architecture and can be sensitive. Keep reports local and review them before sharing. ConfigGap does not upload source, values, keys, section names, filenames, paths, project names, or report contents. Optional telemetry uses the shared activation/heartbeat wire contract and sends only its documented event, tool/version, runtime/process-context, week/timestamp, and pseudonymous hash fields. Telemetry is best-effort and cannot affect analysis.
+Configuration key names may reveal architecture and can be sensitive. Keep reports local and review them before sharing. After a complete trustworthy analysis, ConfigGap requests the shared activation and heartbeat calls without passing analysis results or configuration data to them. The shared package owns telemetry fields, controls, delivery, and failure handling.
 
 CLI JSON reports also preserve the `knownKeys`, `bindableKeys`, `requiredKeys`, and `actuallyReadKeys` state arrays. The envelope and all CLI finding codes are defined in [`docs/configgap-cli-report.schema.json`](docs/configgap-cli-report.schema.json).
 
